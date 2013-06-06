@@ -1,6 +1,6 @@
 program=kvetinac_pi
-OBJ=comm.o main.o packet.o tcpserver.o
-OPT=-Os -lrt
+OBJ=comm.o main.o packet.o tcpserver.o camera.o
+OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
 
 .PHONY: build
 .PHONY: clean
@@ -12,7 +12,7 @@ clean:
 	rm -f *.o ${program}
 
 deploy:
-	rsync -r --exclude=*.o ../raspberry pi@192.168.10.2:/home/pi/
+	rsync -rvc --exclude=*.o --exclude=*~ --exclude=kvetinac_pi ../raspberry pi@192.168.10.2:/home/pi/
 	ssh pi@192.168.10.2 "cd /home/pi/raspberry/ && make"
 
 ${program}: ${OBJ}
@@ -25,6 +25,9 @@ packet.o: packet.cpp
 	g++ ${OPT} -c  $<
 
 tcpserver.o: tcpserver.cpp
+	g++ ${OPT} -c  $<
+
+camera.o: camera.cpp
 	g++ ${OPT} -c  $<
 
 main.o: main.cpp

@@ -8,6 +8,7 @@
 
 #include "comm.h"
 #include "tcpserver.h"
+#include "camera.h"
 
 #define SLEEP_CONST 50
 
@@ -33,11 +34,12 @@ int main()
     {
         sComm.initialize();
         sTcpServer.initialize();
+        sCamera.open();
     }
     catch(const char* ex)
     {
         fprintf(stderr, ex);
-        return 255;
+        //return 255;
     }
 
 
@@ -49,12 +51,14 @@ int main()
         clock_gettime(CLOCK_MONOTONIC, &curr);
         diff = timespec_diff(last, curr);
 
+
+        // Process updates
         {
             sComm.update(diff);
             sTcpServer.update(diff);
+            sCamera.update(diff);
         }
 
-        sTcpServer.write("ahoj\n", 5);
 
         last = curr;
         if(diff <= SLEEP_CONST+prevSleepTime)

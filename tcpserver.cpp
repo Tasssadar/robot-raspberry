@@ -10,8 +10,11 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <stdarg.h>
 
 #include "tcpserver.h"
+#include "camera.h"
+#include "comm.h"
 
 #define PORT 33000
 
@@ -87,9 +90,20 @@ void TcpServer::write(char *buff, int len)
     }
 }
 
+void TcpServer::write(const char *fmt, ...)
+{
+    char txt[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(txt, sizeof(txt), fmt, ap);
+    va_end(ap);
+
+    write(txt, strlen(txt));
+}
+
 void TcpServer::read_client(int fd, int av)
 {
-    char buff[16];
+    char buff[64];
 
     int chunk;
     int read = 0;
@@ -100,6 +114,7 @@ void TcpServer::read_client(int fd, int av)
         read += chunk;
     }
 
+    //sComm.send(buff, av);
     handle_cmds(buff, av);
 }
 
@@ -109,6 +124,30 @@ void TcpServer::handle_cmds(char *buff, int len)
     {
         switch(buff[i])
         {
+            case 'a':
+                sCamera.capture_first();
+                break;
+            case 's':
+                sCamera.find_diff();
+                break;
+            case 'g':
+                sCamera.setShowGui(true);
+                break;
+            case 'h':
+                sCamera.setShowGui(false);
+                break;
+            case 'q':
+                sCamera.setCutY(sCamera.cutY()-5);
+                break;
+            case 'w':
+                sCamera.setCutY(sCamera.cutY()+5);
+                break;
+            case 'c':
+                sCamera.clearCutPoints();
+                break;
+            case 'f':
+                sCamera.finalizeCutCurve();
+                break;
             default:
                 printf("%c", buff[i]);
                 fflush(stdout);

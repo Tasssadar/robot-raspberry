@@ -4,6 +4,7 @@
 #include <vector>
 #include <stdint.h>
 #include <stack>
+#include <string.h>
 
 class TcpServer
 {
@@ -20,6 +21,11 @@ public:
     int available(int fd) const;
     void update(uint32_t diff);
     void write(char *buff, int len);
+    void write(char *str)
+    {
+        write(str, strlen(str));
+    }
+    void write(const char *fmt, ...);
 
 private:
     TcpServer();

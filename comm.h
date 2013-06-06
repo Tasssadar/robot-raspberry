@@ -19,6 +19,7 @@ public:
     void destroy();
 
     int available() const;
+    bool isOpen() const { return m_fd != -1; }
     void send(char *buff, int len);
     void send(char c);
     void send(const Packet& pkt);

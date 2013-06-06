@@ -11,6 +11,7 @@
 #include <sys/select.h>
 
 #include "comm.h"
+#include "tcpserver.h"
 
 #define PORT_DEV "/dev/ttyUSB0"
 #define SPEED B115200
@@ -32,7 +33,8 @@ void Comm::initialize()
     if(m_fd < 0)
     {
         fprintf(stderr, "Can't open the serial port: %s\n", strerror(errno));
-        throw "Can't open serial port";
+        //throw "Can't open serial port";
+        return;
     }
 
 
@@ -41,7 +43,9 @@ void Comm::initialize()
     if (tcgetattr (m_fd, &tty) != 0)
     {
         fprintf(stderr, "error %d from tcgetattr", errno);
-        throw "Can't open serial port";
+        //throw "Can't open serial port";
+        close(m_fd);
+        m_fd = -1;
     }
 
     cfsetospeed (&tty, SPEED);
@@ -69,13 +73,16 @@ void Comm::initialize()
     if (tcsetattr (m_fd, TCSANOW, &tty) != 0)
     {
         fprintf(stderr, "error %d from tcsetattr", errno);
-        throw "Can't open serial port";
+        //throw "Can't open serial port";
+        close(m_fd);
+        m_fd = -1;
     }
 }
 
 void Comm::destroy()
 {
     close(m_fd);
+    m_fd = -1;
 }
 
 void Comm::send(char *str, int len)
@@ -121,6 +128,9 @@ int Comm::available() const
 
 void Comm::update(uint32_t diff)
 {
+    if(!isOpen())
+        return;
+
     int av = available();
     uint8_t b;
     int res;
@@ -129,7 +139,8 @@ void Comm::update(uint32_t diff)
         res = read(m_fd, &b, 1);
         if(res == 1)
         {
-            if(m_pkt.add(b))
+            sTcpServer.write((char*)&b, 1);
+            //if(m_pkt.add(b))
             {
                 // handle packet
             }
