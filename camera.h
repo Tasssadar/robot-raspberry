@@ -19,11 +19,11 @@ public:
         static Camera inst;
         return inst;
     }
-    
+
     int threshold() const { return m_threshold; }
     void setThreshold(int t) { m_threshold = t; }
     void setShowGui(bool show);
-    
+
     int cutY() const { return m_cut_y; }
     void setCutY(int y) { m_cut_y = y; }
     void clearCutPoints()
@@ -33,6 +33,8 @@ public:
     void addCutPoint(int x, int y);
     void finalizeCutCurve();
     bool isPointUnderCurve(const cv::Point& p);
+
+    void updateCamView();
 
     void close();
     void open();

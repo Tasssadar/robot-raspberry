@@ -148,6 +148,9 @@ void TcpServer::handle_cmds(char *buff, int len)
             case 'f':
                 sCamera.finalizeCutCurve();
                 break;
+            case 'u':
+                sCamera.updateCamView();
+                break;
             default:
                 printf("%c", buff[i]);
                 fflush(stdout);

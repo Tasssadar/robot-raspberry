@@ -28,10 +28,16 @@ static void threshold_set(int, void *)
 static void mouseEvent(int evt, int x, int y, int flags, void* param)
 {
     if(evt == CV_EVENT_LBUTTONDOWN)
+    {
         sCamera.clearCutPoints();
+        sCamera.updateCamView();
+    }
 
     if(flags & CV_EVENT_FLAG_LBUTTON)
+    {
         sCamera.addCutPoint(x, y);
+        sCamera.updateCamView();
+    }
 }
 
 Camera::Camera()
@@ -96,34 +102,29 @@ void Camera::capture_thread_work()
 void Camera::update(uint32_t diff)
 {
     cvWaitKey(1);
-    if(m_show_gui)
+}
+
+void Camera::updateCamView()
+{
+    if(!m_show_gui)
+        return;
+
+    Mat tmp;
+    static const Scalar wColor = Scalar(0, 255, 0);
+
+    pthread_mutex_lock(&m_frame_mutex);
+    tmp = m_frame.clone();
+    pthread_mutex_unlock(&m_frame_mutex);
+
+    line(tmp, Point(0, m_cut_y), Point(RES_X, m_cut_y), wColor);
+
+    if(!m_cut_pts.empty())
     {
-        if(m_cut_y >= 0)
-        {
-            Mat tmp;
-            static const Scalar wColor = Scalar(0, 255, 0);
-
-            pthread_mutex_lock(&m_frame_mutex);
-            tmp = m_frame.clone();
-            pthread_mutex_unlock(&m_frame_mutex);
-
-            line(tmp, Point(0, m_cut_y), Point(RES_X, m_cut_y), wColor);
-
-            if(!m_cut_pts.empty())
-            {
-                const Point *p = (const cv::Point*) Mat(m_cut_pts).data;
-                int size = Mat(m_cut_pts).rows;
-                polylines(tmp, &p, &size, 1, false, wColor);
-            }
-            imshow("camera", tmp);
-        }
-        else
-        {
-            pthread_mutex_lock(&m_frame_mutex);
-            imshow("camera", m_frame);
-            pthread_mutex_unlock(&m_frame_mutex);
-        }
+        const Point *p = (const cv::Point*) Mat(m_cut_pts).data;
+        int size = Mat(m_cut_pts).rows;
+        polylines(tmp, &p, &size, 1, false, wColor);
     }
+    imshow("camera", tmp);
 }
 
 void Camera::capture_first()
