@@ -1,4 +1,5 @@
 #include <assert.h>
+
 #include <stdio.h>
 #include <vector>
 #include <stdlib.h>
@@ -8,6 +9,8 @@
 
 #include "camera.h"
 #include "tcpserver.h"
+
+#include <raspicam/raspicam_cv.h>
 
 using namespace cv;
 
@@ -59,8 +62,11 @@ void Camera::open()
 {
     assert(m_capture == NULL);
 
-    m_capture = new VideoCapture(0);
-    if (!m_capture->isOpened()) {
+    m_capture = new raspicam::RaspiCam_Cv();
+    m_capture->set(CV_CAP_PROP_FRAME_WIDTH, RES_X);
+    m_capture->set(CV_CAP_PROP_FRAME_HEIGHT, RES_Y);
+
+    if (!m_capture->open()) {
         fprintf(stderr, "Camera: capture is NULL \n");
         delete m_capture;
         m_capture = NULL;
@@ -82,6 +88,7 @@ void Camera::close()
     m_run_capture = false;
     pthread_join(m_capture_thread, 0);
 
+    m_capture->release();
     delete m_capture;
     m_capture = NULL;
 }
@@ -90,9 +97,7 @@ void Camera::capture_thread_work()
 {
     while(m_run_capture)
     {
-        if(!m_capture->grab())
-            continue;
-
+        m_capture->grab();
         pthread_mutex_lock(&m_frame_mutex);
         m_capture->retrieve(m_frame);
         pthread_mutex_unlock(&m_frame_mutex);

@@ -11,6 +11,10 @@ namespace cv {
     class VideoCapture;
 };
 
+namespace raspicam {
+    class RaspiCam_Cv;
+};
+
 class Camera
 {
 public:
@@ -50,7 +54,7 @@ private:
     Camera();
     virtual ~Camera();
 
-    cv::VideoCapture *m_capture;
+    raspicam::RaspiCam_Cv *m_capture;
     pthread_t m_capture_thread;
     pthread_mutex_t m_frame_mutex;
     volatile bool m_run_capture;

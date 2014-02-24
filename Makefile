@@ -1,6 +1,6 @@
 program=kvetinac_pi
 OBJ=comm.o main.o packet.o tcpserver.o camera.o
-OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
+OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc -lraspicam -lraspicam_cv -lmmal -lmmal_core -lmmal_util
 
 .PHONY: build
 .PHONY: clean
