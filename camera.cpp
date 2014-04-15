@@ -137,6 +137,7 @@ void Camera::capture_first()
     pthread_mutex_lock(&m_frame_mutex);
     if(!m_frame.empty())
     {
+	imwrite("first.bmp", m_frame);
         cvtColor(m_frame, m_diff1, CV_RGB2GRAY);
         printf("Diff 1 captured\n");
     }
@@ -154,6 +155,7 @@ void Camera::find_diff()
     pthread_mutex_lock(&m_frame_mutex);
     if(!m_frame.empty())
     {
+	imwrite("second.bmp", m_frame);
         cvtColor(m_frame, m_diff2, CV_RGB2GRAY);
         printf("Diff 2 captured\n");
     }
@@ -231,11 +233,12 @@ void Camera::find_bear()
         {
             const Rect& bRect = boundingRects[maxCnt];
             printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
-            sTcpServer.write("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
+            sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
         }
     }
     else
     {
+#if 0
         Mat drawing = Mat::zeros( tmp.size(), CV_8UC3 );
         static const Scalar bColor = Scalar(0, 0, 255);
         static const Scalar wColor = Scalar(0, 255, 0);
@@ -245,13 +248,32 @@ void Camera::find_bear()
             const Rect& bRect = boundingRects[i];
 
             if(maxCnt == i)
+            {
                 printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
+                sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
+            }
 
             drawContours( drawing, contours, i, maxCnt == i ? wColor : color, 3, 8);
             rectangle(drawing, bRect.tl(), bRect.br(), bColor, 2, 8, 0);
         }
         line(drawing, Point(0, m_cut_y), Point(RES_X, m_cut_y), wColor);
         imshow("diff", drawing);
+#else
+        Mat drawing = Mat::zeros( tmp.size(), CV_8UC1 );
+        static const Scalar color = Scalar(255, 255, 255);
+
+        drawContours( drawing, contours, maxCnt, color, -1, 8);
+        //rectangle(drawing, bRect.tl(), bRect.br(), color, 2, 8, 0);
+        
+        imshow("diff", drawing);
+        imwrite("diff.bmp", drawing);
+
+        if(maxCnt != -1) {
+            const Rect& bRect = boundingRects[maxCnt];
+            printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
+            sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
+        }
+#endif
     }
 }
 

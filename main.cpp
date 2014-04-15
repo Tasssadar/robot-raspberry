@@ -42,6 +42,8 @@ int main()
         //return 255;
     }
 
+    printf("Initialization complete.\n");
+
 
     timespec last, curr;
     uint32_t diff = 0, prevSleepTime = 0;
