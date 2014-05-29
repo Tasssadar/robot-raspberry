@@ -11,6 +11,7 @@
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #include "tcpserver.h"
 #include "camera.h"
@@ -124,12 +125,6 @@ void TcpServer::handle_cmds(char *buff, int len)
     {
         switch(buff[i])
         {
-            case 'a':
-                sCamera.capture_first();
-                break;
-            case 's':
-                sCamera.find_diff();
-                break;
             case 'g':
                 sCamera.setShowGui(true);
                 break;
@@ -152,6 +147,11 @@ void TcpServer::handle_cmds(char *buff, int len)
                 sCamera.updateCamView();
                 break;
             default:
+                if(isdigit(buff[i]))
+                {
+                	sCamera.capture(uint32_t(buff[i]-'1'));
+                	break;
+                }
                 printf("%c", buff[i]);
                 fflush(stdout);
                 break;

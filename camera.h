@@ -15,6 +15,15 @@ namespace raspicam {
     class RaspiCam_Cv;
 };
 
+enum
+{
+    DIFF_TYPE_A = 0,
+    DIFF_TYPE_B = 1,
+    DIFF_TYPE_MAX = 2,
+    
+    DIFF_MAX_CNT = 2,
+};
+
 class Camera
 {
 public:
@@ -46,8 +55,8 @@ public:
     void update(uint32_t diff);
     void capture_thread_work();
 
-    void capture_first();
-    void find_diff();
+    void capture(uint32_t idx);
+    void find_bear(const cv::Mat& diff);
     void find_bear();
 
 private:
@@ -59,11 +68,11 @@ private:
     pthread_mutex_t m_frame_mutex;
     volatile bool m_run_capture;
     cv::Mat m_frame;
-    cv::Mat m_diff1;
-    cv::Mat m_diff2;
+    cv::Mat m_diffs[DIFF_MAX_CNT][DIFF_TYPE_MAX];
     int m_threshold;
     bool m_show_gui;
     int m_cut_y;
+    int m_last_diff;
     std::vector<cv::Point> m_cut_pts;
 };
 

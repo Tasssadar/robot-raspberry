@@ -49,6 +49,7 @@ Camera::Camera()
     m_run_capture = false;
     m_threshold = 70;
     m_show_gui = false;
+    m_last_diff = -1;
 
     pthread_mutex_init(&m_frame_mutex, 0);
 }
@@ -132,40 +133,38 @@ void Camera::updateCamView()
     imshow("camera", tmp);
 }
 
-void Camera::capture_first()
+void Camera::capture(uint32_t idx)
 {
-    pthread_mutex_lock(&m_frame_mutex);
-    if(!m_frame.empty())
-    {
-	imwrite("first.bmp", m_frame);
-        cvtColor(m_frame, m_diff1, CV_RGB2GRAY);
-        printf("Diff 1 captured\n");
-    }
-    pthread_mutex_unlock(&m_frame_mutex);
-}
-
-void Camera::find_diff()
-{
-    if(m_diff1.empty())
-    {
-        printf("no diff 1\n");
+	const int i = idx/DIFF_TYPE_MAX;
+	const int type = idx%DIFF_TYPE_MAX; 
+    if(i >= DIFF_MAX_CNT)
         return;
-    }
-
+    
+    char buff[64];
+	snprintf(buff, sizeof(buff), "img_%02d_%02d.bmp", i, type); 
     pthread_mutex_lock(&m_frame_mutex);
     if(!m_frame.empty())
     {
-	imwrite("second.bmp", m_frame);
-        cvtColor(m_frame, m_diff2, CV_RGB2GRAY);
-        printf("Diff 2 captured\n");
+	    imwrite(buff, m_frame);
+        cvtColor(m_frame, m_diffs[i][type], CV_RGB2GRAY);
+        printf("Diff %02d-%02d captured\n", i, type);
     }
     pthread_mutex_unlock(&m_frame_mutex);
-
-    Mat diff;
-    subtract(m_diff1, m_diff2, diff);
-    m_diff2 = diff;
-
-    find_bear();
+    
+    if(type == 1)
+    {
+    	if(m_diffs[i][0].empty())
+    	{
+    		printf("No diff 1\n");
+    		return;
+		}
+		
+		Mat diff;
+	    subtract(m_diffs[i][0], m_diffs[i][1], diff);
+	    m_diffs[i][1] = diff;
+	    m_last_diff = i;
+	    find_bear(diff);
+	}
 }
 
 bool Camera::isPointUnderCurve(const Point& p)
@@ -191,13 +190,18 @@ bool Camera::isPointUnderCurve(const Point& p)
 
 void Camera::find_bear()
 {
-    if(m_diff2.empty())
+    if(m_last_diff != -1)
+    	find_bear(m_diffs[m_last_diff][1]);
+}
+void Camera::find_bear(const cv::Mat& diff)
+{
+    if(diff.empty())
         return;
 
     Mat tmp;
     std::vector<std::vector<Point> > contours;
     std::vector<Rect> boundingRects;
-    cv::threshold(m_diff2, tmp, m_threshold, 255, 0);
+    cv::threshold(diff, tmp, m_threshold, 255, 0);
 
     findContours(tmp, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
