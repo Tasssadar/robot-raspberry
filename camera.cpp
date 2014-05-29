@@ -59,7 +59,7 @@ Camera::~Camera()
     close();
 }
 
-void Camera::open()
+void Camera::open(int threshold)
 {
     assert(m_capture == NULL);
 
@@ -79,6 +79,9 @@ void Camera::open()
 
     m_run_capture = true;
     pthread_create(&m_capture_thread, 0, camera_run_capture_thread, this);
+    
+    if(threshold > 0)
+    	setThreshold(threshold);
 }
 
 void Camera::close()
@@ -294,12 +297,12 @@ void Camera::find_bear(const cv::Mat& diff)
         line(drawing, Point(0, m_cut_y), Point(RES_X, m_cut_y), wColor);
         imshow("diff", drawing);
 #else
-        Mat drawing = Mat::zeros( tmp.size(), CV_8UC1 );
+        Mat drawing = Mat::zeros( tmp.size(), CV_8UC3 );
         static const Scalar color = Scalar(255, 255, 255);
 
         drawContours( drawing, contours, maxCnt, color, -1, 8);
         {
-            static const Scalar gColor = Scalar(0, 255, 0)
+            static const Scalar gColor = Scalar(0, 255, 0);
         	const Rect& bRect = boundingRects[maxCnt];
 			rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
 		}

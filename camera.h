@@ -50,7 +50,7 @@ public:
     void updateCamView();
 
     void close();
-    void open();
+    void open(int threshold = 0);
 
     void update(uint32_t diff);
     void capture_thread_work();
