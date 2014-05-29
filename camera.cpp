@@ -193,6 +193,11 @@ void Camera::find_bear()
     if(m_last_diff != -1)
     	find_bear(m_diffs[m_last_diff][1]);
 }
+
+static bool sort_poly(const Point& a, const Point&b)
+{
+    return (a.y < b.y) || (a.y == b.y && a.x < b.x); 
+}
 void Camera::find_bear(const cv::Mat& diff)
 {
     if(diff.empty())
@@ -209,6 +214,7 @@ void Camera::find_bear(const cv::Mat& diff)
 
     double max = 0;
     int maxCnt = -1;
+    vector<Point> bigPoly;
     for(int i = 0; i < contours.size(); ++i)
     {
         double t = contourArea(contours[i]);
@@ -224,10 +230,35 @@ void Camera::find_bear(const cv::Mat& diff)
             {
                 max = t;
                 maxCnt = i;
-                printf("area: %f\n", t);
+                poly.swap(bigPoly);
+                //printf("area: %f\n", t);
             }
         }
     }
+
+    // Use only the top third - the head    
+    if(maxCnt != -1)
+    {
+        int min_x = bigPoly[0].x;
+        int max_x = bigPoly[0].x;
+        int width = 0;
+        const int top = (boundingRects[maxCnt].y + int(boundingRects[maxCnt].height*0.3));
+        std::vector<Point> newPoly;
+    	std::sort(bigPoly.begin(), bigPoly.end(), sort_poly);
+    	for(size_t i = 0; i < bigPoly.size(); ++i)
+    	{
+    	    
+    		min_x = std::min(min_x, bigPoly[i].x);
+			max_x = std::max(max_x, bigPoly[i].x);
+			printf("%03d: %d %d - %d %d/%d\n", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
+			//if(i > 5 && (max_x - min_x) > int(width*1.2))
+			if(bigPoly[i].y >= top)
+			    break;
+			width = max_x - min_x;
+			newPoly.push_back(bigPoly[i]);	
+		}
+		boundingRects[maxCnt] = boundingRect(Mat(newPoly));
+	}
 
     if(!m_show_gui)
     {
@@ -267,7 +298,11 @@ void Camera::find_bear(const cv::Mat& diff)
         static const Scalar color = Scalar(255, 255, 255);
 
         drawContours( drawing, contours, maxCnt, color, -1, 8);
-        //rectangle(drawing, bRect.tl(), bRect.br(), color, 2, 8, 0);
+        {
+            static const Scalar gColor = Scalar(0, 255, 0)
+        	const Rect& bRect = boundingRects[maxCnt];
+			rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
+		}
         
         imshow("diff", drawing);
         imwrite("diff.bmp", drawing);
