@@ -30,31 +30,31 @@ static uint32_t timespec_diff(const timespec &f, const timespec &s)
 
 int main(int argc, char **argv)
 {
-	int cam_threshold = 0;
+    int cam_threshold = 0;
 
-	for(int i = 1; i < argc; ++i)
+    for(int i = 1; i < argc; ++i)
     {
         const int len = strlen(argv[i]);
         if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
         {
-        	printf("Usage: %s [SWITCHES]\n"
-				"    -t X                    - Set the detection threshold\n");
-        	return 0;
-		}
-    	else if(strncmp("-t", argv[i], 2) == 0)
-    	{
-    		if(len > 2)
-    			cam_threshold = atoi(argv[i]+2);
-			else if(i+1 < argc)
-				cam_threshold = atoi(argv[++i]);
-		}
-		else
-		{
-			fprintf(stderr, "Unknown argument: %s\n", argv[i]);
-			return 1;
-		}
-	}
-	
+            printf("Usage: %s [SWITCHES]\n"
+                "    -t X                    - Set the detection threshold\n");
+            return 0;
+        }
+        else if(strncmp("-t", argv[i], 2) == 0)
+        {
+            if(len > 2)
+                cam_threshold = atoi(argv[i]+2);
+            else if(i+1 < argc)
+                cam_threshold = atoi(argv[++i]);
+        }
+        else
+        {
+            fprintf(stderr, "Unknown argument: %s\n", argv[i]);
+            return 1;
+        }
+    }
+    
     try
     {
         sComm.initialize();

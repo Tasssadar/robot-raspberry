@@ -79,9 +79,9 @@ void Camera::open(int threshold)
 
     m_run_capture = true;
     pthread_create(&m_capture_thread, 0, camera_run_capture_thread, this);
-    
+
     if(threshold > 0)
-    	setThreshold(threshold);
+        setThreshold(threshold);
 }
 
 void Camera::close()
@@ -138,36 +138,36 @@ void Camera::updateCamView()
 
 void Camera::capture(uint32_t idx)
 {
-	const int i = idx/DIFF_TYPE_MAX;
-	const int type = idx%DIFF_TYPE_MAX; 
+    const int i = idx/DIFF_TYPE_MAX;
+    const int type = idx%DIFF_TYPE_MAX; 
     if(i >= DIFF_MAX_CNT)
         return;
-    
+
     char buff[64];
-	snprintf(buff, sizeof(buff), "img_%02d_%02d.bmp", i, type); 
+    snprintf(buff, sizeof(buff), "img_%02d_%02d.bmp", i, type); 
     pthread_mutex_lock(&m_frame_mutex);
     if(!m_frame.empty())
     {
-	    imwrite(buff, m_frame);
+        imwrite(buff, m_frame);
         cvtColor(m_frame, m_diffs[i][type], CV_RGB2GRAY);
         printf("Diff %02d-%02d captured\n", i, type);
     }
     pthread_mutex_unlock(&m_frame_mutex);
-    
+
     if(type == 1)
     {
-    	if(m_diffs[i][0].empty())
-    	{
-    		printf("No diff 1\n");
-    		return;
-		}
-		
-		Mat diff;
-	    subtract(m_diffs[i][0], m_diffs[i][1], diff);
-	    m_diffs[i][1] = diff;
-	    m_last_diff = i;
-	    find_bear(diff);
-	}
+        if(m_diffs[i][0].empty())
+        {
+            printf("No diff 1\n");
+            return;
+        }
+        
+        Mat diff;
+        subtract(m_diffs[i][0], m_diffs[i][1], diff);
+        m_diffs[i][1] = diff;
+        m_last_diff = i;
+        find_bear(diff);
+    }
 }
 
 bool Camera::isPointUnderCurve(const Point& p)
@@ -194,7 +194,7 @@ bool Camera::isPointUnderCurve(const Point& p)
 void Camera::find_bear()
 {
     if(m_last_diff != -1)
-    	find_bear(m_diffs[m_last_diff][1]);
+        find_bear(m_diffs[m_last_diff][1]);
 }
 
 static bool sort_poly(const Point& a, const Point&b)
@@ -247,21 +247,21 @@ void Camera::find_bear(const cv::Mat& diff)
         int width = 0;
         const int top = (boundingRects[maxCnt].y + int(boundingRects[maxCnt].height*0.3));
         std::vector<Point> newPoly;
-    	std::sort(bigPoly.begin(), bigPoly.end(), sort_poly);
-    	for(size_t i = 0; i < bigPoly.size(); ++i)
-    	{
-    	    
-    		min_x = std::min(min_x, bigPoly[i].x);
-			max_x = std::max(max_x, bigPoly[i].x);
-			printf("%03d: %d %d - %d %d/%d\n", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
-			//if(i > 5 && (max_x - min_x) > int(width*1.2))
-			if(bigPoly[i].y >= top)
-			    break;
-			width = max_x - min_x;
-			newPoly.push_back(bigPoly[i]);	
-		}
-		boundingRects[maxCnt] = boundingRect(Mat(newPoly));
-	}
+        std::sort(bigPoly.begin(), bigPoly.end(), sort_poly);
+        for(size_t i = 0; i < bigPoly.size(); ++i)
+        {
+            
+            min_x = std::min(min_x, bigPoly[i].x);
+            max_x = std::max(max_x, bigPoly[i].x);
+            printf("%03d: %d %d - %d %d/%d\n", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
+            //if(i > 5 && (max_x - min_x) > int(width*1.2))
+            if(bigPoly[i].y >= top)
+                break;
+            width = max_x - min_x;
+            newPoly.push_back(bigPoly[i]);    
+        }
+        boundingRects[maxCnt] = boundingRect(Mat(newPoly));
+    }
 
     if(!m_show_gui)
     {
@@ -303,9 +303,9 @@ void Camera::find_bear(const cv::Mat& diff)
         drawContours( drawing, contours, maxCnt, color, -1, 8);
         {
             static const Scalar gColor = Scalar(0, 255, 0);
-        	const Rect& bRect = boundingRects[maxCnt];
-			rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
-		}
+            const Rect& bRect = boundingRects[maxCnt];
+            rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
+        }
         
         imshow("diff", drawing);
         imwrite("diff.bmp", drawing);

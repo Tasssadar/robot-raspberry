@@ -20,7 +20,7 @@ enum
     DIFF_TYPE_A = 0,
     DIFF_TYPE_B = 1,
     DIFF_TYPE_MAX = 2,
-    
+
     DIFF_MAX_CNT = 2,
 };
 
