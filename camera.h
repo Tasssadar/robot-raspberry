@@ -39,6 +39,10 @@ public:
 
     int cutY() const { return m_cut_y; }
     void setCutY(int y) { m_cut_y = y; }
+
+    int rotation() const { return m_rotation; }
+    void setRotation(int deg) { m_rotation = deg; }
+
     void clearCutPoints()
     {
         m_cut_pts.clear();
@@ -60,6 +64,8 @@ public:
     void find_bear();
 
 private:
+    void rotateFrame(cv::Mat& frame);
+
     Camera();
     virtual ~Camera();
 
@@ -73,6 +79,7 @@ private:
     bool m_show_gui;
     int m_cut_y;
     int m_last_diff;
+    int m_rotation;
     std::vector<cv::Point> m_cut_pts;
 };
 

@@ -104,7 +104,29 @@ void Camera::capture_thread_work()
         m_capture->grab();
         pthread_mutex_lock(&m_frame_mutex);
         m_capture->retrieve(m_frame);
+        rotateFrame(m_frame);
         pthread_mutex_unlock(&m_frame_mutex);
+    }
+}
+
+void Camera::rotateFrame(cv::Mat& frame)
+{
+    switch(m_rotation)
+    {
+        case 90:
+            cv::transpose(frame, frame);
+            cv::flip(frame, frame, 1);
+            break;
+        case 180:
+            cv::flip(frame, frame, -1);
+            break;
+        case 270:
+            cv::transpose(frame, frame);
+            cv::flip(frame, frame, 0);
+            break;
+        case 0:
+        default:
+            return;
     }
 }
 
