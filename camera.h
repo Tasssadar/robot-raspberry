@@ -43,6 +43,9 @@ public:
     int rotation() const { return m_rotation; }
     void setRotation(int deg) { m_rotation = deg; }
 
+    void setVar(const std::string& name, int val);
+    int getVar(const std::string& name);
+
     void clearCutPoints()
     {
         m_cut_pts.clear();

@@ -378,3 +378,23 @@ void Camera::finalizeCutCurve()
     p.x = RES_X;
     m_cut_pts.push_back(p);
 }
+
+void Camera::setVar(const std::string& name, int val)
+{
+    if(name == "cgui")
+        setShowGui(val);
+    else if(name == "crotation")
+        setRotation(val);
+    else if(name == "cthreshold")
+        setThreshold(val);
+}
+
+int Camera::getVar(const std::string& name)
+{
+    if(name == "cgui")
+        return m_show_gui;
+    else if(name == "crotation")
+        return m_rotation;
+    else if(name == "cthreshold")
+        return m_threshold;
+}

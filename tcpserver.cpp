@@ -61,7 +61,7 @@ void TcpServer::initialize()
 void TcpServer::destroy()
 {
     for(size_t i = 0; i < m_clients.size(); ++i)
-        close(m_clients[i]);
+        close(m_clients[i].fd);
 
     close(m_sock_fd);
 }
@@ -79,13 +79,13 @@ int TcpServer::available(int fd) const
 void TcpServer::write(char *buff, int len)
 {
     int res;
-    for(std::vector<int>::iterator itr = m_clients.begin(); itr != m_clients.end(); ++itr)
+    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end(); ++itr)
     {
-        res = ::write(*itr, buff, len);
+        res = ::write((*itr).fd, buff, len);
 
         if(res < 0)
         {
-            ::close(*itr);
+            ::close((*itr).fd);
             itr = m_clients.erase(itr);
         }
     }
@@ -102,7 +102,14 @@ void TcpServer::write(const char *fmt, ...)
     write(txt, strlen(txt));
 }
 
-void TcpServer::read_client(int fd, int av)
+void TcpServer::write(const Packet &pkt)
+{
+    std::vector<char> data;
+    pkt.get_send_data(data);
+    write(data.data(), data.size());
+}
+
+void TcpServer::read_client(tcp_client& cli, int av)
 {
     char buff[64];
 
@@ -111,50 +118,64 @@ void TcpServer::read_client(int fd, int av)
     while(read != av)
     {
         chunk = std::min(sizeof(buff), (size_t)av);
-        ::read(fd, buff, chunk);
+        ::read(cli.fd, buff, chunk);
         read += chunk;
-    }
 
-    //sComm.send(buff, av);
-    handle_cmds(buff, av);
+        for(int i = 0; i < chunk; ++i)
+        {
+            if(cli.pkt.add(buff[i]))
+            {
+                handle_packet(cli.pkt);
+                cli.pkt.clear();
+            }
+        }
+    }
 }
 
-void TcpServer::handle_cmds(char *buff, int len)
+void TcpServer::handle_packet(Packet& pkt)
 {
-    for(int i = 0; i < len; ++i)
+    switch(pkt.cmd)
     {
-        switch(buff[i])
+        case CMSG_SET_VAR_INT:
         {
-            case 'g':
-                sCamera.setShowGui(true);
-                break;
-            case 'h':
-                sCamera.setShowGui(false);
-                break;
-            case 'q':
-                sCamera.setCutY(sCamera.cutY()-5);
-                break;
-            case 'w':
-                sCamera.setCutY(sCamera.cutY()+5);
-                break;
-            case 'c':
-                sCamera.clearCutPoints();
-                break;
-            case 'f':
-                sCamera.finalizeCutCurve();
-                break;
-            case 'u':
-                sCamera.updateCamView();
-                break;
-            default:
-                if(isdigit(buff[i]))
-                {
-                	sCamera.capture(uint32_t(buff[i]-'1'));
-                	break;
-                }
-                printf("%c", buff[i]);
-                fflush(stdout);
-                break;
+            std::string name;
+            int val;
+
+            pkt >> name;
+            pkt >> val;
+
+            switch(name[0])
+            {
+                case 'c':
+                    sCamera.setVar(name, val);
+                    break;
+            }
+            break;
+        }
+        case CMSG_GET_VAR_INT:
+        {
+            std::string name;
+            pkt >> name;
+
+            int ret = 0;
+            switch(name[0])
+            {
+                case 'c':
+                    ret = sCamera.getVar(name);
+                    break;
+            }
+
+            Packet res_pkt(SMSG_GET_VAR_INT);
+            res_pkt << ret;
+            write(res_pkt);
+            break;
+        }
+        case CMSG_EXEC_ACT:
+        {
+            std::string name;
+            pkt >> name;
+            
+            break;
         }
     }
 }
@@ -163,12 +184,14 @@ void TcpServer::update(uint32_t diff)
 {
     int res;
     while((res = accept(m_sock_fd, NULL, 0)) >= 0)
-        m_clients.push_back(res);
+    {
+        m_clients.push_back(tcp_client(res));
+    }
 
     int av;
-    for(std::vector<int>::iterator itr = m_clients.begin(); itr != m_clients.end(); ++itr)
+    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end(); ++itr)
     {
-        av = available(*itr);
+        av = available((*itr).fd);
         if(av == 0)
             continue;
 
@@ -176,7 +199,7 @@ void TcpServer::update(uint32_t diff)
             read_client(*itr, av);
         else
         {
-            ::close(*itr);
+            ::close((*itr).fd);
             itr = m_clients.erase(itr);
         }
     }
