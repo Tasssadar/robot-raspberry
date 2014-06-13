@@ -14,6 +14,7 @@ enum
     CMSG_GET_VAR_INT = 11,
     SMSG_GET_VAR_INT = 12,
     CMSG_EXEC_ACT    = 13,
+    SMSG_ACT_RES     = 14,
 };
 
 class TcpServer

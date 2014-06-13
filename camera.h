@@ -46,6 +46,8 @@ public:
     void setVar(const std::string& name, int val);
     int getVar(const std::string& name);
 
+    void execAct(const std::string& name);
+
     void clearCutPoints()
     {
         m_cut_pts.clear();

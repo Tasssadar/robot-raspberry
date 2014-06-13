@@ -139,7 +139,7 @@ void TcpServer::handle_packet(Packet& pkt)
         case CMSG_SET_VAR_INT:
         {
             std::string name;
-            int val;
+            int32_t val;
 
             pkt >> name;
             pkt >> val;
@@ -157,7 +157,7 @@ void TcpServer::handle_packet(Packet& pkt)
             std::string name;
             pkt >> name;
 
-            int ret = 0;
+            int32_t ret = 0;
             switch(name[0])
             {
                 case 'c':
@@ -174,7 +174,13 @@ void TcpServer::handle_packet(Packet& pkt)
         {
             std::string name;
             pkt >> name;
-            
+
+            switch(name[0])
+            {
+                case 'c':
+                    sCamera.execAct(name);
+                    break;
+            }
             break;
         }
     }

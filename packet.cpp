@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <stdio.h>
 #include "packet.h"
 
 Packet::Packet()
@@ -35,6 +36,7 @@ void Packet::clear()
 
 bool Packet::add(uint8_t b)
 {
+    printf("Packet:add: b: 0x%02X m_witr %d, cmd %d, m_len %d\n", b, m_witr, cmd, m_len);
     switch(m_witr)
     {
         case 0:
@@ -52,9 +54,9 @@ bool Packet::add(uint8_t b)
         }
         default:
         {
-            if(m_witr >= m_len+2)
-                return true;
             data.push_back(b);
+            if(m_witr >= m_len+1)
+                return true;
             break;
         }
     }
@@ -71,4 +73,30 @@ void Packet::get_send_data(std::vector<char>& res) const
 
     if(res.size() > 17)
         res.resize(17);
+}
+
+void Packet::read(std::string& val)
+{
+    val.clear();
+    while(data[m_ritr] != 0 && m_ritr < 15)
+        val.push_back(data[m_ritr++]);
+    ++m_ritr; // skip \0
+}
+
+void Packet::write(const std::string& val)
+{
+    data.insert(data.end(), val.begin(), val.end());
+    data.push_back(0);
+}
+
+Packet& Packet::operator <<(const std::string& val)
+{
+    write(val);
+    return *this;
+}
+
+Packet& Packet::operator >>(std::string& val)
+{
+    read(val);
+    return *this;
 }

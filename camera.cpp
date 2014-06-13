@@ -335,7 +335,14 @@ void Camera::find_bear(const cv::Mat& diff)
         if(maxCnt != -1) {
             const Rect& bRect = boundingRects[maxCnt];
             printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
-            sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
+            //sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
+            Packet pkt(SMSG_ACT_RES);
+            pkt << std::string("cbear");
+            pkt << int16_t(bRect.x);
+            pkt << int16_t(bRect.y);
+            pkt << int16_t(bRect.width);
+            pkt << int16_t(bRect.height);
+            sTcpServer.write(pkt);
         }
 #endif
     }
@@ -397,4 +404,19 @@ int Camera::getVar(const std::string& name)
         return m_rotation;
     else if(name == "cthreshold")
         return m_threshold;
+}
+
+void Camera::execAct(const std::string& name)
+{
+    if(name == "cupdate")
+        updateCamView();
+    else if(name.size() == 6 && name.compare(0, 5, "cdiff", 5) == 0)
+    {
+        capture(name[5]-'0');
+
+        Packet pkt(SMSG_ACT_RES);
+        pkt << name;
+        pkt << int32_t(1);
+        sTcpServer.write(pkt);
+    }
 }

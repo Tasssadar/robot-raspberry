@@ -15,6 +15,7 @@ public:
     bool add(uint8_t b);
     void swap(Packet& other);
     void clear();
+    bool empty() const;
     void get_send_data(std::vector<char>& res) const;
 
     int cmd;
@@ -22,8 +23,12 @@ public:
 
     template <typename T> void write(T val);
     template <typename T> void read(T& val);
+    void write(const std::string& val);
+    void read(std::string& val);
     template <typename T> Packet& operator <<(T val);
     template <typename T> Packet& operator >>(T& val);
+    Packet& operator <<(const std::string& val);
+    Packet& operator >>(std::string& val);
     uint8_t operator [](size_t idx) const { return data[idx]; }
     uint8_t& operator [](size_t idx) { return data[idx]; }
 
@@ -34,17 +39,10 @@ private:
 };
 
 template <typename T>
-void Packet::write(T val)
+void Packet::write(T val
 {
     for(int i = 1; i <= sizeof(T); ++i)
         data.push_back((val >> ((sizeof(T)-i)*8)) & 0xFF);
-}
-
-template <>
-void Packet::write(const std::string& val)
-{
-    data.insert(data.end(), val.begin(), val.end());
-    data.push_back(0);
 }
 
 template <typename T>
@@ -63,14 +61,6 @@ void Packet::read(T& val)
         --r;
         *r = data[m_ritr++];
     }
-}
-
-template <>
-void Packet::read(std::string& val)
-{
-    val.clear();
-    while(data[m_ritr] != 0 && m_ritr < 15)
-        val.push_back(data[m_ritr++]);
 }
 
 template <typename T>
