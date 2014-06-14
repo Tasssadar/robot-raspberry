@@ -39,7 +39,7 @@ private:
 };
 
 template <typename T>
-void Packet::write(T val
+void Packet::write(T val)
 {
     for(int i = 1; i <= sizeof(T); ++i)
         data.push_back((val >> ((sizeof(T)-i)*8)) & 0xFF);
