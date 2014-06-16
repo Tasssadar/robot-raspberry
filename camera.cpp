@@ -4,18 +4,22 @@
 #include <vector>
 #include <stdlib.h>
 
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-
 #include "camera.h"
 #include "tcpserver.h"
 
-#include <raspicam/raspicam_cv.h>
+#define RES_X 320
+#define RES_Y 240
+
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 using namespace cv;
 
-#define RES_X 320
-#define RES_Y 240
+#ifndef NORPI
+  #include <raspicam/raspicam_cv.h>
+#else
+ #include <unistd.h>
+#endif
 
 static void *camera_run_capture_thread(void *camera)
 {
@@ -45,11 +49,19 @@ static void mouseEvent(int evt, int x, int y, int flags, void* param)
 
 Camera::Camera()
 {
+#ifndef NORPI
     m_capture = NULL;
+#else
+    m_frame.create(RES_Y, RES_X, CV_8UC3);
+    m_frame.setTo(Scalar(0, 0, 0));
+#endif
     m_run_capture = false;
     m_threshold = 70;
     m_show_gui = false;
     m_last_diff = -1;
+
+    for(size_t i = 0; i < DIFF_MAX_CNT; ++i)
+        m_bear[i] = Rect(-1, -1, -1, -1);
 
     pthread_mutex_init(&m_frame_mutex, 0);
 }
@@ -61,6 +73,7 @@ Camera::~Camera()
 
 void Camera::open(int threshold)
 {
+#ifndef NORPI
     assert(m_capture == NULL);
 
     m_capture = new raspicam::RaspiCam_Cv();
@@ -76,6 +89,7 @@ void Camera::open(int threshold)
 
     m_capture->set(CV_CAP_PROP_FRAME_WIDTH, RES_X);
     m_capture->set(CV_CAP_PROP_FRAME_HEIGHT, RES_Y);
+#endif
 
     m_run_capture = true;
     pthread_create(&m_capture_thread, 0, camera_run_capture_thread, this);
@@ -86,26 +100,34 @@ void Camera::open(int threshold)
 
 void Camera::close()
 {
+#ifndef NORPI
     if(m_capture == NULL)
         return;
+#endif
 
     m_run_capture = false;
     pthread_join(m_capture_thread, 0);
 
+#ifndef NORPI
     m_capture->release();
     delete m_capture;
     m_capture = NULL;
+#endif
 }
 
 void Camera::capture_thread_work()
 {
     while(m_run_capture)
     {
+#ifndef NORPI
         m_capture->grab();
         pthread_mutex_lock(&m_frame_mutex);
         m_capture->retrieve(m_frame);
         rotateFrame(m_frame);
         pthread_mutex_unlock(&m_frame_mutex);
+#else
+        usleep(16000);
+#endif
     }
 }
 
@@ -183,12 +205,12 @@ void Camera::capture(uint32_t idx)
             printf("No diff 1\n");
             return;
         }
-        
+
         Mat diff;
         subtract(m_diffs[i][0], m_diffs[i][1], diff);
         m_diffs[i][1] = diff;
         m_last_diff = i;
-        find_bear(diff);
+        m_bear[i] = find_bear(diff);
     }
 }
 
@@ -216,17 +238,20 @@ bool Camera::isPointUnderCurve(const Point& p)
 void Camera::find_bear()
 {
     if(m_last_diff != -1)
-        find_bear(m_diffs[m_last_diff][1]);
+    {
+        m_bear[m_last_diff] = find_bear(m_diffs[m_last_diff][1]);
+    }
 }
 
 static bool sort_poly(const Point& a, const Point&b)
 {
     return (a.y < b.y) || (a.y == b.y && a.x < b.x); 
 }
-void Camera::find_bear(const cv::Mat& diff)
+
+cv::Rect Camera::find_bear(const cv::Mat& diff)
 {
     if(diff.empty())
-        return;
+        return Rect(-1, -1, -1, -1);
 
     Mat tmp;
     std::vector<std::vector<Point> > contours;
@@ -272,7 +297,6 @@ void Camera::find_bear(const cv::Mat& diff)
         std::sort(bigPoly.begin(), bigPoly.end(), sort_poly);
         for(size_t i = 0; i < bigPoly.size(); ++i)
         {
-            
             min_x = std::min(min_x, bigPoly[i].x);
             max_x = std::max(max_x, bigPoly[i].x);
             printf("%03d: %d %d - %d %d/%d\n", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
@@ -287,14 +311,8 @@ void Camera::find_bear(const cv::Mat& diff)
 
     if(!m_show_gui)
     {
-        if(maxCnt == -1)
-            printf("Not found\n");
-        else
-        {
-            const Rect& bRect = boundingRects[maxCnt];
-            printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
-            sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
-        }
+        if(maxCnt != -1)
+            return boundingRects[maxCnt];
     }
     else
     {
@@ -320,32 +338,30 @@ void Camera::find_bear(const cv::Mat& diff)
         imshow("diff", drawing);
 #else
         Mat drawing = Mat::zeros( tmp.size(), CV_8UC3 );
-        static const Scalar color = Scalar(255, 255, 255);
 
-        drawContours( drawing, contours, maxCnt, color, -1, 8);
-        {
-            static const Scalar gColor = Scalar(0, 255, 0);
-            const Rect& bRect = boundingRects[maxCnt];
-            rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
-        }
-        
         imshow("diff", drawing);
         imwrite("diff.bmp", drawing);
 
-        if(maxCnt != -1) {
+        if(maxCnt != -1)
+        {
             const Rect& bRect = boundingRects[maxCnt];
+            static const Scalar color = Scalar(255, 255, 255);
+            static const Scalar gColor = Scalar(0, 255, 0);
+
+            drawContours( drawing, contours, maxCnt, color, -1, 8);
+            rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
             printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
-            //sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
-            Packet pkt(SMSG_ACT_RES);
-            pkt << std::string("cbear");
-            pkt << int16_t(bRect.x);
-            pkt << int16_t(bRect.y);
-            pkt << int16_t(bRect.width);
-            pkt << int16_t(bRect.height);
-            sTcpServer.write(pkt);
         }
+
+        imshow("diff", drawing);
+        imwrite("diff.bmp", drawing);
+
+        if(maxCnt != -1)
+            return boundingRects[maxCnt];
 #endif
     }
+
+    return Rect(-1, -1, -1, -1);
 }
 
 void Camera::setShowGui(bool show)
@@ -406,17 +422,36 @@ int Camera::getVar(const std::string& name)
         return m_threshold;
 }
 
+static bool startsWith(const std::string& haystack, const char *needle)
+{
+    const int len = strlen(needle);
+    return haystack.size() > len &&
+        haystack.compare(0, len, needle, len) == 0;
+}
+
 void Camera::execAct(const std::string& name)
 {
     if(name == "cupdate")
         updateCamView();
-    else if(name.size() == 6 && name.compare(0, 5, "cdiff", 5) == 0)
+    else if(startsWith(name, "cdiff"))
     {
         capture(name[5]-'0');
 
         Packet pkt(SMSG_ACT_RES);
         pkt << name;
         pkt << int32_t(1);
+        sTcpServer.write(pkt);
+    }
+    else if(startsWith(name, "cber"))
+    {
+        const Rect& b = m_bear[name[4]-'0'];
+
+        Packet pkt(SMSG_ACT_RES);
+        pkt << name;
+        pkt << int16_t(b.x);
+        pkt << int16_t(b.y);
+        pkt << int16_t(b.width);
+        pkt << int16_t(b.height);
         sTcpServer.write(pkt);
     }
 }

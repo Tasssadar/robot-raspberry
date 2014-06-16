@@ -65,7 +65,7 @@ public:
     void capture_thread_work();
 
     void capture(uint32_t idx);
-    void find_bear(const cv::Mat& diff);
+    cv::Rect find_bear(const cv::Mat& diff);
     void find_bear();
 
 private:
@@ -74,7 +74,10 @@ private:
     Camera();
     virtual ~Camera();
 
+#ifndef NORPI
     raspicam::RaspiCam_Cv *m_capture;
+#endif
+
     pthread_t m_capture_thread;
     pthread_mutex_t m_frame_mutex;
     volatile bool m_run_capture;
@@ -85,6 +88,7 @@ private:
     int m_cut_y;
     int m_last_diff;
     int m_rotation;
+    cv::Rect m_bear[DIFF_MAX_CNT];
     std::vector<cv::Point> m_cut_pts;
 };
 

@@ -1,6 +1,14 @@
 program=kvetinac_pi
 OBJ=comm.o main.o packet.o tcpserver.o camera.o
-OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc -lraspicam -lraspicam_cv -lmmal -lmmal_core -lmmal_util
+OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
+
+ifeq ($(NORPI), true)
+	OPT += -DNORPI
+else
+	OPT += -lraspicam -lraspicam_cv -lmmal -lmmal_core -lmmal_util
+endif
+
+OPT += $(CXXFLAGS)
 
 .PHONY: build
 .PHONY: clean
