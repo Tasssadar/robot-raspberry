@@ -55,11 +55,11 @@ Packet& Packet::operator <<(T val)
 template <typename T>
 void Packet::read(T& val)
 {
-    uint8_t *r = ((uint8_t*)&val) + sizeof(T);
+    uint8_t *r = ((uint8_t*)&val);
     for(int i = 0; i < sizeof(T); ++i)
     {
-        --r;
         *r = data[m_ritr++];
+        ++r;
     }
 }
 
