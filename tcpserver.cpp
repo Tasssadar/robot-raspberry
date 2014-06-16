@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <stdarg.h>
 #include <ctype.h>
 
@@ -47,6 +48,7 @@ void TcpServer::initialize()
 
     int optval = 1;
     setsockopt(m_sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
+
     if (bind(m_sock_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         fprintf(stderr, "TcpServer: Failed to bind %s\n", strerror(errno));
@@ -79,15 +81,17 @@ int TcpServer::available(int fd) const
 void TcpServer::write(char *buff, int len)
 {
     int res;
-    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end(); ++itr)
+    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end();)
     {
-        res = ::write((*itr).fd, buff, len);
+        res = send((*itr).fd, buff, len, MSG_NOSIGNAL);
 
         if(res < 0)
         {
             ::close((*itr).fd);
             itr = m_clients.erase(itr);
         }
+        else
+            ++itr;
     }
 }
 
@@ -109,19 +113,18 @@ void TcpServer::write(const Packet &pkt)
     write(data.data(), data.size());
 }
 
-void TcpServer::read_client(tcp_client& cli, int av)
+void TcpServer::read_client(tcp_client& cli)
 {
     char buff[64];
 
-    int chunk;
-    int read = 0;
-    while(read != av)
+    ssize_t read;
+    while(true)
     {
-        chunk = std::min(sizeof(buff), (size_t)av);
-        ::read(cli.fd, buff, chunk);
-        read += chunk;
+        read = ::read(cli.fd, buff, sizeof(buff));
+        if(read <= 0)
+            break;
 
-        for(int i = 0; i < chunk; ++i)
+        for(ssize_t i = 0; i < read; ++i)
         {
             if(cli.pkt.add(buff[i]))
             {
@@ -191,22 +194,25 @@ void TcpServer::update(uint32_t diff)
     int res;
     while((res = accept(m_sock_fd, NULL, 0)) >= 0)
     {
+        const int optval = 1;
+        ioctl(res, FIONBIO, &optval);
         m_clients.push_back(tcp_client(res));
     }
 
     int av;
-    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end(); ++itr)
+    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end();)
     {
         av = available((*itr).fd);
-        if(av == 0)
-            continue;
 
         if(av > 0)
-            read_client(*itr, av);
-        else
+            read_client(*itr);
+
+        if(av < 0)
         {
             ::close((*itr).fd);
             itr = m_clients.erase(itr);
         }
+        else
+            ++itr;
     }
 }

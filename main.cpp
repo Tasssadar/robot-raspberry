@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <stdlib.h>
-#include <signal.h>
 
 #include "comm.h"
 #include "tcpserver.h"
@@ -39,7 +38,7 @@ int main(int argc, char **argv)
         if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
         {
             printf("Usage: %s [SWITCHES]\n"
-                "    -t X                    - Set the detection threshold\n");
+                "    -t X                    - Set the detection threshold\n", argv[0]);
             return 0;
         }
         else if(strncmp("-t", argv[i], 2) == 0)
@@ -67,8 +66,6 @@ int main(int argc, char **argv)
         fprintf(stderr, ex);
         //return 255;
     }
-
-    signal(SIGPIPE, SIG_IGN);
 
     printf("Initialization complete.\n");
 

@@ -54,7 +54,7 @@ private:
         Packet pkt;
     };
 
-    void read_client(tcp_client& cli, int av);
+    void read_client(tcp_client& cli);
     void handle_packet(Packet& pkt);
 
     int m_sock_fd;
