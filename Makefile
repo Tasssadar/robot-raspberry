@@ -38,3 +38,6 @@ camera.o: camera.cpp
 
 main.o: main.cpp
 	${CXX} ${OPT} -c  $<
+
+comm.o: comm.cpp
+	${CXX} ${OPT} -c  $<

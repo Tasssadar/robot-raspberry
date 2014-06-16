@@ -73,7 +73,8 @@ Camera::~Camera()
 void Camera::open(int threshold)
 {
 #ifndef NORPI
-    assert(m_capture == NULL);
+    if(m_capture)
+        return;
 
     m_capture = new raspicam::RaspiCam_Cv();
     m_capture->set(CV_CAP_PROP_FRAME_WIDTH, RES_X);
@@ -198,7 +199,7 @@ void Camera::capture(uint32_t idx)
     {
         if(m_diffs[i][0].empty())
         {
-            LOGE("No diff 1\n");
+            LOGE("No diff 1");
             return;
         }
 
@@ -415,6 +416,8 @@ void Camera::execAct(const std::string& name)
     else if(startsWith(name, "cber"))
     {
         const Rect& b = m_bear[name[4]-'0'];
+
+        LOGD("Bear %d at [%d;%d] %dx%d", int(name[4]-'0'), b.x, b.y, b.width, b.height);
 
         Packet pkt(SMSG_ACT_RES);
         pkt << name;

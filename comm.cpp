@@ -12,6 +12,7 @@
 
 #include "comm.h"
 #include "tcpserver.h"
+#include "util.h"
 
 #define PORT_DEV "/dev/ttyUSB0"
 #define SPEED B115200
@@ -28,11 +29,11 @@ Comm::~Comm()
 
 void Comm::initialize()
 {
-    printf("Comm: Starting\n");
+    LOGD("Starting");
     m_fd = open(PORT_DEV, O_RDWR | O_NOCTTY | O_NDELAY);
     if(m_fd < 0)
     {
-        fprintf(stderr, "Can't open the serial port: %s\n", strerror(errno));
+        LOGE("Can't open: %s", strerror(errno));
         //throw "Can't open serial port";
         return;
     }
@@ -42,7 +43,7 @@ void Comm::initialize()
     memset (&tty, 0, sizeof tty);
     if (tcgetattr (m_fd, &tty) != 0)
     {
-        fprintf(stderr, "error %d from tcgetattr", errno);
+        LOGE("error \"%s\" from tcgetattr", strerror(errno));
         //throw "Can't open serial port";
         close(m_fd);
         m_fd = -1;
@@ -72,7 +73,7 @@ void Comm::initialize()
 
     if (tcsetattr (m_fd, TCSANOW, &tty) != 0)
     {
-        fprintf(stderr, "error %d from tcsetattr", errno);
+        LOGE("error %d from tcsetattr", strerror(errno));
         //throw "Can't open serial port";
         close(m_fd);
         m_fd = -1;
@@ -91,9 +92,9 @@ void Comm::send(char *str, int len)
     if(res != len)
     {
         if(res == -1)
-            fprintf(stderr, "Failed to write bytes to comm: %s\n", strerror(errno));
+            LOGE("Failed to write bytes to comm: %s", strerror(errno));
         else
-            fprintf(stderr, "Failed to write %d bytes to comm, %d written\n", len, res);
+            LOGE("Failed to write %d bytes to comm, %d written", len, res);
     }
 }
 
@@ -113,14 +114,14 @@ void Comm::send(const Packet& pkt)
         res = write(m_fd, pkt.data.data(), pkt.data.size());
 
     if(res == -1)
-        fprintf(stderr, "Failed to write bytes to comm: %s\n", strerror(errno));
+        LOGE("Failed to write bytes to comm: %s", strerror(errno));
 }
 
 int Comm::available() const
 {
     int bytes;
     if (::ioctl(m_fd, FIONREAD, &bytes) == -1) {
-        fprintf(stderr, "Failed to do FIONREAD ioctl\n");
+        LOGE("Failed to do FIONREAD ioctl");
         return -1;
     }
     return bytes;
@@ -131,22 +132,25 @@ void Comm::update(uint32_t diff)
     if(!isOpen())
         return;
 
-    int av = available();
+    ssize_t av = available();
+
     uint8_t b;
-    int res;
-    for(int i = 0; i < av; ++i)
+    char buff[64];
+    ssize_t chunk;
+    ssize_t read = 0;
+    while(read < av)
     {
-        res = read(m_fd, &b, 1);
-        if(res == 1)
-        {
-            sTcpServer.write((char*)&b, 1);
-            //if(m_pkt.add(b))
-            {
-                // handle packet
-            }
-        }
+        chunk = std::min((ssize_t)sizeof(buff), av);
+        chunk = ::read(m_fd, buff, chunk);
+        read += chunk;
+
+        if(chunk > 0)
+            sTunnelServer.write(buff, chunk);
         else
-            fprintf(stderr, "Failed to read byte: %s\n", strerror(errno));
+        {
+            LOGE("Failed to read byte: %s", strerror(errno));
+            break;
+        }
     }
 }
 

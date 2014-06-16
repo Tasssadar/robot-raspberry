@@ -60,7 +60,8 @@ int main(int argc, char **argv)
     {
         sComm.initialize();
         sTcpServer.initialize();
-        sCamera.open(cam_threshold);
+        sTunnelServer.initialize();
+        //sCamera.open(cam_threshold);
     }
     catch(const char* ex)
     {
@@ -84,6 +85,7 @@ int main(int argc, char **argv)
         {
             sComm.update(diff);
             sTcpServer.update(diff);
+            sTunnelServer.update(diff);
             sCamera.update(diff);
         }
 

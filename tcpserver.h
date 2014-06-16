@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <stdint.h>
-#include <stack>
 #include <string.h>
 
 #include "packet.h"
@@ -47,6 +46,9 @@ protected:
         Packet pkt;
     };
 
+    virtual void onClientAdded();
+    virtual void onClientRm();
+
     virtual void read_client(tcp_client& cli) = 0;
 
     int m_sock_fd;
@@ -70,6 +72,9 @@ public:
 private:
     void read_client(tcp_client& cli);
     void handle_packet(Packet& pkt);
+
+    void onClientAdded();
+    void onClientRm();
 };
 
 class TunnelTcpServer : public TcpServer

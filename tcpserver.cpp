@@ -34,7 +34,7 @@ TcpServer::~TcpServer()
 
 void TcpServer::initialize()
 {
-    LOGD("starting");
+    LOGD("starting on port %d", m_port);
     struct sockaddr_in serv_addr;
     m_sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if(m_sock_fd < 0)
@@ -67,6 +67,7 @@ void TcpServer::destroy()
     for(size_t i = 0; i < m_clients.size(); ++i)
         close(m_clients[i].fd);
 
+    m_clients.clear();
     close(m_sock_fd);
 }
 
@@ -74,7 +75,7 @@ int TcpServer::available(int fd) const
 {
     int bytes;
     if (::ioctl(fd, FIONREAD, &bytes) == -1) {
-        LOGE("failed to do FIONREAD ioctl");
+        LOGE("failed to do FIONREAD ioctl on fd %d: %s", fd, strerror(errno));
         return -errno;
     }
     return bytes;
@@ -83,18 +84,11 @@ int TcpServer::available(int fd) const
 void TcpServer::write(char *buff, int len)
 {
     int res;
-    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end();)
+    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end();++itr)
     {
         res = send((*itr).fd, buff, len, MSG_NOSIGNAL);
-
         if(res < 0)
-        {
-            LOGD("failed, removing client %d", (*itr).fd);
-            ::close((*itr).fd);
-            itr = m_clients.erase(itr);
-        }
-        else
-            ++itr;
+            LOGE("failed on client %d: %s", (*itr).fd, strerror(errno));
     }
 }
 
@@ -118,24 +112,40 @@ void TcpServer::update(uint32_t diff)
         ioctl(res, FIONBIO, &optval);
         LOGD("Client connected: %d", res);
         m_clients.push_back(tcp_client(res));
+        onClientAdded();
     }
 
     int av;
-    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end();)
+    for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end(); )
     {
         av = available((*itr).fd);
-
         if(av > 0)
-            read_client(*itr);
-
-        if(av < 0)
         {
+            // read_client may execute commands and write(), so it may remove some clients.
+            // keep it in mind
+            read_client(*itr);
+            ++itr;
+        }
+        else if(av < 0 || (av == 0 && recv((*itr).fd, NULL, 0, 0) == 0))
+        {
+            LOGD("Client disconnected: %d", (*itr).fd);
             ::close((*itr).fd);
             itr = m_clients.erase(itr);
+            onClientRm();
         }
         else
             ++itr;
     }
+}
+
+void TcpServer::onClientAdded()
+{
+
+}
+
+void TcpServer::onClientRm()
+{
+
 }
 
 
@@ -238,6 +248,18 @@ void CommandTcpServer::handle_packet(Packet& pkt)
     }
 }
 
+void CommandTcpServer::onClientAdded()
+{
+    if(m_clients.size() == 1)
+        sCamera.open();
+}
+
+void CommandTcpServer::onClientRm()
+{
+    if(m_clients.empty())
+        sCamera.close();
+}
+
 TunnelTcpServer::TunnelTcpServer() : TcpServer(TUNNEL_PORT)
 {
 }
@@ -253,6 +275,6 @@ void TunnelTcpServer::read_client(tcp_client& cli)
         if(read <= 0)
             break;
 
-        // TODO
+        sComm.send(buff, read);
     }
 }
