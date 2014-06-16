@@ -6,9 +6,7 @@
 
 #include "camera.h"
 #include "tcpserver.h"
-
-#define RES_X 320
-#define RES_Y 240
+#include "util.h"
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -20,6 +18,9 @@ using namespace cv;
 #else
  #include <unistd.h>
 #endif
+
+#define RES_X 320
+#define RES_Y 240
 
 static void *camera_run_capture_thread(void *camera)
 {
@@ -37,13 +38,11 @@ static void mouseEvent(int evt, int x, int y, int flags, void* param)
     if(evt == CV_EVENT_LBUTTONDOWN)
     {
         sCamera.clearCutPoints();
-        sCamera.updateCamView();
     }
 
     if(flags & CV_EVENT_FLAG_LBUTTON)
     {
         sCamera.addCutPoint(x, y);
-        sCamera.updateCamView();
     }
 }
 
@@ -81,7 +80,7 @@ void Camera::open(int threshold)
     m_capture->set(CV_CAP_PROP_FRAME_HEIGHT, RES_Y);
 
     if (!m_capture->open()) {
-        fprintf(stderr, "Camera: capture is NULL \n");
+        LOGE("capture is NULL");
         delete m_capture;
         m_capture = NULL;
         return;
@@ -187,14 +186,11 @@ void Camera::capture(uint32_t idx)
     if(i >= DIFF_MAX_CNT)
         return;
 
-    char buff[64];
-    snprintf(buff, sizeof(buff), "img_%02d_%02d.bmp", i, type); 
     pthread_mutex_lock(&m_frame_mutex);
     if(!m_frame.empty())
     {
-        imwrite(buff, m_frame);
         cvtColor(m_frame, m_diffs[i][type], CV_RGB2GRAY);
-        printf("Diff %02d-%02d captured\n", i, type);
+        LOGD("Diff %02d-%02d captured", i, type);
     }
     pthread_mutex_unlock(&m_frame_mutex);
 
@@ -202,7 +198,7 @@ void Camera::capture(uint32_t idx)
     {
         if(m_diffs[i][0].empty())
         {
-            printf("No diff 1\n");
+            LOGE("No diff 1\n");
             return;
         }
 
@@ -299,7 +295,7 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
         {
             min_x = std::min(min_x, bigPoly[i].x);
             max_x = std::max(max_x, bigPoly[i].x);
-            printf("%03d: %d %d - %d %d/%d\n", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
+            LOGD("%03d: %d %d - %d %d/%d", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
             //if(i > 5 && (max_x - min_x) > int(width*1.2))
             if(bigPoly[i].y >= top)
                 break;
@@ -316,31 +312,7 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
     }
     else
     {
-#if 0
         Mat drawing = Mat::zeros( tmp.size(), CV_8UC3 );
-        static const Scalar bColor = Scalar(0, 0, 255);
-        static const Scalar wColor = Scalar(0, 255, 0);
-        static const Scalar color = Scalar(255, 255, 255);
-        for( int i = 0; i< contours.size(); i++ )
-        {
-            const Rect& bRect = boundingRects[i];
-
-            if(maxCnt == i)
-            {
-                printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
-                sTcpServer.write("bear %d %d %d %d\n", bRect.x, bRect.y, bRect.width, bRect.height);
-            }
-
-            drawContours( drawing, contours, i, maxCnt == i ? wColor : color, 3, 8);
-            rectangle(drawing, bRect.tl(), bRect.br(), bColor, 2, 8, 0);
-        }
-        line(drawing, Point(0, m_cut_y), Point(RES_X, m_cut_y), wColor);
-        imshow("diff", drawing);
-#else
-        Mat drawing = Mat::zeros( tmp.size(), CV_8UC3 );
-
-        imshow("diff", drawing);
-        imwrite("diff.bmp", drawing);
 
         if(maxCnt != -1)
         {
@@ -350,15 +322,13 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
 
             drawContours( drawing, contours, maxCnt, color, -1, 8);
             rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
-            printf("\nFound: %d %d\n", bRect.x + bRect.width/2, bRect.y + bRect.height/2);
+            LOGD("Found: %d %d", bRect.x, bRect.y);
         }
 
         imshow("diff", drawing);
-        imwrite("diff.bmp", drawing);
 
         if(maxCnt != -1)
             return boundingRects[maxCnt];
-#endif
     }
 
     return Rect(-1, -1, -1, -1);

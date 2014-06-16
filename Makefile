@@ -1,6 +1,7 @@
 program=kvetinac_pi
 OBJ=main.o packet.o tcpserver.o camera.o
 OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
+CXX?=g++
 
 ifeq ($(NORPI), true)
 	OPT += -DNORPI
@@ -24,19 +25,16 @@ deploy:
 	ssh pi@192.168.10.2 "cd /home/pi/raspberry/ && make"
 
 ${program}: ${OBJ}
-	g++ ${OBJ} -o ${program} ${OPT}
-
-comm.o: comm.cpp
-	g++ ${OPT} -c  $<
+	${CXX} ${OBJ} -o ${program} ${OPT}
 
 packet.o: packet.cpp
-	g++ ${OPT} -c  $<
+	${CXX} ${OPT} -c  $<
 
 tcpserver.o: tcpserver.cpp
-	g++ ${OPT} -c  $<
+	${CXX} ${OPT} -c  $<
 
 camera.o: camera.cpp
-	g++ ${OPT} -c  $<
+	${CXX} ${OPT} -c  $<
 
 main.o: main.cpp
-	g++ ${OPT} -c  $<
+	${CXX} ${OPT} -c  $<

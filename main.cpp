@@ -8,6 +8,7 @@
 
 #include "tcpserver.h"
 #include "camera.h"
+#include "util.h"
 
 #define SLEEP_CONST 50
 
@@ -49,11 +50,11 @@ int main(int argc, char **argv)
         }
         else
         {
-            fprintf(stderr, "Unknown argument: %s\n", argv[i]);
+            LOGE("Unknown argument: %s", argv[i]);
             return 1;
         }
     }
-    
+
     try
     {
         sTcpServer.initialize();
@@ -65,7 +66,7 @@ int main(int argc, char **argv)
         //return 255;
     }
 
-    printf("Initialization complete.\n");
+    LOGD("Initialization complete.");
 
 
     timespec last, curr;

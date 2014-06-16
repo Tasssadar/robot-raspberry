@@ -20,11 +20,8 @@ enum
 class TcpServer
 {
 public:
-    static TcpServer& instance()
-    {
-        static TcpServer inst;
-        return inst;
-    }
+    TcpServer(uint16_t port);
+    virtual ~TcpServer();
 
     void initialize();
     void destroy();
@@ -36,13 +33,9 @@ public:
     {
         write(str, strlen(str));
     }
-    void write(const Packet &pkt);
     void write(const char *fmt, ...);
 
-private:
-    TcpServer();
-    virtual ~TcpServer();
-
+protected:
     struct tcp_client
     {
         tcp_client(int fd)
@@ -54,12 +47,46 @@ private:
         Packet pkt;
     };
 
-    void read_client(tcp_client& cli);
-    void handle_packet(Packet& pkt);
+    virtual void read_client(tcp_client& cli) = 0;
 
     int m_sock_fd;
+    uint16_t m_port;
     std::vector<tcp_client> m_clients;
 };
 
-#define sTcpServer TcpServer::instance()
+class CommandTcpServer : public TcpServer
+{
+public:
+    CommandTcpServer();
+
+    static CommandTcpServer& instance()
+    {
+        static CommandTcpServer inst;
+        return inst;
+    }
+
+    void write(const Packet &pkt);
+
+private:
+    void read_client(tcp_client& cli);
+    void handle_packet(Packet& pkt);
+};
+
+class TunnelTcpServer : public TcpServer
+{
+    TunnelTcpServer();
+
+public:
+    static TunnelTcpServer& instance()
+    {
+        static TunnelTcpServer inst;
+        return inst;
+    }
+
+private:
+    void read_client(tcp_client& cli);
+};
+
+#define sTcpServer CommandTcpServer::instance()
+#define sTunnelServer TunnelTcpServer::instance()
 #endif

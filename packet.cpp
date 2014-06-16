@@ -36,7 +36,7 @@ void Packet::clear()
 
 bool Packet::add(uint8_t b)
 {
-    printf("Packet:add: b: 0x%02X m_witr %d, cmd %d, m_len %d\n", b, m_witr, cmd, m_len);
+    //printf("Packet:add: b: 0x%02X m_witr %d, cmd %d, m_len %d\n", b, m_witr, cmd, m_len);
     switch(m_witr)
     {
         case 0:
