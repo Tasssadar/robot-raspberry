@@ -6,6 +6,7 @@
 #include <time.h>
 #include <stdlib.h>
 
+#include "comm.h"
 #include "tcpserver.h"
 #include "camera.h"
 #include "util.h"
@@ -57,6 +58,7 @@ int main(int argc, char **argv)
 
     try
     {
+        sComm.initialize();
         sTcpServer.initialize();
         sCamera.open(cam_threshold);
     }
@@ -80,6 +82,7 @@ int main(int argc, char **argv)
 
         // Process updates
         {
+            sComm.update(diff);
             sTcpServer.update(diff);
             sCamera.update(diff);
         }

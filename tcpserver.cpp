@@ -16,6 +16,7 @@
 
 #include "tcpserver.h"
 #include "camera.h"
+#include "comm.h"
 #include "util.h"
 
 #define CMD_PORT 33000
