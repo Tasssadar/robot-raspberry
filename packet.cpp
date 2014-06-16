@@ -10,7 +10,7 @@ Packet::Packet()
 Packet::Packet(int cmd)
 {
     clear();
-    cmd = cmd;
+    this->cmd = cmd;
 }
 
 Packet::~Packet()
@@ -68,7 +68,7 @@ void Packet::get_send_data(std::vector<char>& res) const
 {
     res.clear();
     res.push_back(0x80);
-    res.push_back((data.size() << 4) | cmd);
+    res.push_back((cmd << 4) | data.size());
     res.insert(res.end(), data.begin(), data.end());
 
     if(res.size() > 17)
