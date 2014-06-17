@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <vector>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "camera.h"
 #include "tcpserver.h"
@@ -15,8 +16,6 @@ using namespace cv;
 
 #ifndef NORPI
   #include <raspicam/raspicam_cv.h>
-#else
- #include <unistd.h>
 #endif
 
 #define RES_X 320
@@ -63,10 +62,13 @@ Camera::Camera()
         m_bear[i] = Rect(-1, -1, -1, -1);
 
     pthread_mutex_init(&m_frame_mutex, 0);
+    pthread_cond_init(&m_frame_cond, 0);
 }
 
 Camera::~Camera()
 {
+    pthread_cond_destroy(&m_frame_cond);
+    pthread_mutex_destroy(&m_frame_mutex);
     close();
 }
 
@@ -124,6 +126,7 @@ void Camera::capture_thread_work()
         pthread_mutex_lock(&m_frame_mutex);
         m_capture->retrieve(m_frame);
         rotateFrame(m_frame);
+        pthread_cond_broadcast(&m_frame_cond);
         pthread_mutex_unlock(&m_frame_mutex);
 #else
         usleep(16000);
@@ -163,7 +166,7 @@ void Camera::updateCamView()
         return;
 
     Mat tmp;
-    static const Scalar wColor = Scalar(0, 255, 0);
+    const Scalar wColor = Scalar(0, 255, 0);
 
     pthread_mutex_lock(&m_frame_mutex);
     tmp = m_frame.clone();
@@ -190,6 +193,9 @@ void Camera::capture(uint32_t idx)
     pthread_mutex_lock(&m_frame_mutex);
     if(!m_frame.empty())
     {
+        char name[128];
+        snprintf(name, sizeof(name), "diff_%02d-%02d.png", i, type);
+        imwrite(name, m_frame);
         cvtColor(m_frame, m_diffs[i][type], CV_RGB2GRAY);
         LOGD("Diff %02d-%02d captured", i, type);
     }
@@ -318,8 +324,8 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
         if(maxCnt != -1)
         {
             const Rect& bRect = boundingRects[maxCnt];
-            static const Scalar color = Scalar(255, 255, 255);
-            static const Scalar gColor = Scalar(0, 255, 0);
+            const Scalar color = Scalar(255, 255, 255);
+            const Scalar gColor = Scalar(0, 255, 0);
 
             drawContours( drawing, contours, maxCnt, color, -1, 8);
             rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
@@ -381,6 +387,8 @@ void Camera::setVar(const std::string& name, int val)
         setRotation(val);
     else if(name == "cthreshold")
         setThreshold(val);
+    else
+        LOGE("Unknown var %s = %d", name.c_str(), val);
 }
 
 int Camera::getVar(const std::string& name)
@@ -391,6 +399,8 @@ int Camera::getVar(const std::string& name)
         return m_rotation;
     else if(name == "cthreshold")
         return m_threshold;
+    else
+        LOGE("Unknown var %s", name.c_str());
 }
 
 static bool startsWith(const std::string& haystack, const char *needle)
@@ -415,9 +425,10 @@ void Camera::execAct(const std::string& name)
     }
     else if(startsWith(name, "cber"))
     {
-        const Rect& b = m_bear[name[4]-'0'];
+        const int type = name[4]-'0';
+        const Rect& b = m_bear[type];
 
-        LOGD("Bear %d at [%d;%d] %dx%d", int(name[4]-'0'), b.x, b.y, b.width, b.height);
+        LOGD("Bear %d at [%d;%d] %dx%d", type, b.x, b.y, b.width, b.height);
 
         Packet pkt(SMSG_ACT_RES);
         pkt << name;
@@ -426,5 +437,24 @@ void Camera::execAct(const std::string& name)
         pkt << int16_t(b.width);
         pkt << int16_t(b.height);
         sTcpServer.write(pkt);
+
+        if(m_show_gui)
+            m_bear[type] = find_bear(m_diffs[type][1]);
     }
+    else
+        LOGE("Unknown action %s", name.c_str());
+}
+
+void Camera::setRotation(int deg)
+{
+    if(m_rotation == deg)
+        return;
+
+    m_rotation = deg;
+
+    // wait for new, rotated frame
+    pthread_mutex_lock(&m_frame_mutex);
+    LOGD("Waiting");
+    pthread_cond_wait(&m_frame_cond, &m_frame_mutex);
+    pthread_mutex_unlock(&m_frame_mutex);
 }

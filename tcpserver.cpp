@@ -115,14 +115,13 @@ void TcpServer::update(uint32_t diff)
         onClientAdded();
     }
 
+    // disconnected clients must be removed from m_clients in this method and nowhere else
     int av;
     for(std::vector<tcp_client>::iterator itr = m_clients.begin(); itr != m_clients.end(); )
     {
         av = available((*itr).fd);
         if(av > 0)
         {
-            // read_client may execute commands and write(), so it may remove some clients.
-            // keep it in mind
             read_client(*itr);
             ++itr;
         }

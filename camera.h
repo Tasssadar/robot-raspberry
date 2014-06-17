@@ -41,7 +41,7 @@ public:
     void setCutY(int y) { m_cut_y = y; }
 
     int rotation() const { return m_rotation; }
-    void setRotation(int deg) { m_rotation = deg; }
+    void setRotation(int deg);
 
     void setVar(const std::string& name, int val);
     int getVar(const std::string& name);
@@ -80,6 +80,7 @@ private:
 
     pthread_t m_capture_thread;
     pthread_mutex_t m_frame_mutex;
+    pthread_cond_t m_frame_cond;
     volatile bool m_run_capture;
     cv::Mat m_frame;
     cv::Mat m_diffs[DIFF_MAX_CNT][DIFF_TYPE_MAX];
