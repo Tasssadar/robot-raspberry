@@ -271,7 +271,7 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
     double max = 0;
     int maxCnt = -1;
     vector<Point> bigPoly;
-    for(int i = 0; i < contours.size(); ++i)
+    for(size_t i = 0; i < contours.size(); ++i)
     {
         double t = contourArea(contours[i]);
         vector<Point> poly;
@@ -305,7 +305,7 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
         {
             min_x = std::min(min_x, bigPoly[i].x);
             max_x = std::max(max_x, bigPoly[i].x);
-            LOGD("%03d: %d %d - %d %d/%d", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
+            LOGD("%03lu: %d %d - %d %d/%d", i, bigPoly[i].x, bigPoly[i].y, (max_x - min_x), width, int(width*1.2));
             //if(i > 5 && (max_x - min_x) > int(width*1.2))
             if(bigPoly[i].y >= top)
                 break;
@@ -403,12 +403,15 @@ int Camera::getVar(const std::string& name)
     else if(name == "cthreshold")
         return m_threshold;
     else
+    {
         LOGE("Unknown var %s", name.c_str());
+        return -1;
+    }
 }
 
 static bool startsWith(const std::string& haystack, const char *needle)
 {
-    const int len = strlen(needle);
+    const size_t len = strlen(needle);
     return haystack.size() > len &&
         haystack.compare(0, len, needle, len) == 0;
 }

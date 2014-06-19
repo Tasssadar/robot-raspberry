@@ -241,7 +241,7 @@ void CommandTcpServer::handle_packet(Packet& pkt)
         }
         default:
         {
-            LOGE("Unknown opcode %d of len %d", pkt.cmd, pkt.data.size());
+            LOGE("Unknown opcode %d of len %lu", pkt.cmd, pkt.data.size());
             break;
         }
     }

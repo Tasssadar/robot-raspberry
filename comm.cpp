@@ -78,7 +78,7 @@ void Comm::initialize()
 
     if (tcsetattr (m_fd, TCSANOW, &tty) != 0)
     {
-        LOGE("error %d from tcsetattr", strerror(errno));
+        LOGE("error %s from tcsetattr", strerror(errno));
         close(m_fd);
         m_fd = -1;
         return;
@@ -123,7 +123,6 @@ void Comm::update(uint32_t diff)
 
     ssize_t av = available();
 
-    uint8_t b;
     char buff[64];
     ssize_t chunk;
     ssize_t read = 0;
@@ -157,8 +156,8 @@ void Comm::write_thread_work()
 
             if(res == -1)
                 LOGE("Failed to write bytes to comm: %s", strerror(errno));
-            else if(res != data.size())
-                LOGE("Failed to write %d bytes to comm, %d written", data.size(), res);
+            else if(res != (int)data.size())
+                LOGE("Failed to write %lu bytes to comm, %d written", data.size(), res);
         }
     }
 }

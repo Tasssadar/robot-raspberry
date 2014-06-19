@@ -78,7 +78,6 @@ size_t SafeQueue<T>::size() const
     return m_queue.size();
 }
 
-
 template <class T>
 void SafeQueue<T>::push(const T& element)
 {

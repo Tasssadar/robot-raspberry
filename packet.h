@@ -41,7 +41,7 @@ private:
 template <typename T>
 void Packet::write(T val)
 {
-    for(int i = 0; i < sizeof(T); ++i)
+    for(size_t i = 0; i < sizeof(T); ++i)
         data.push_back((val >> (i*8)) & 0xFF);
 }
 
@@ -56,7 +56,7 @@ template <typename T>
 void Packet::read(T& val)
 {
     uint8_t *r = ((uint8_t*)&val);
-    for(int i = 0; i < sizeof(T); ++i)
+    for(size_t i = 0; i < sizeof(T); ++i)
     {
         *r = data[m_ritr++];
         ++r;
