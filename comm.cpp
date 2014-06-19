@@ -17,9 +17,16 @@
 #define PORT_DEV "/dev/ttyUSB0"
 #define SPEED B115200
 
+static void *run_write_thread(void *comm)
+{
+    ((Comm*)comm)->write_thread_work();
+    return NULL;
+}
+
 Comm::Comm() 
 {
     m_fd = -1;
+    m_run_write_thread = false;
 }
 
 Comm::~Comm()
@@ -30,23 +37,21 @@ Comm::~Comm()
 void Comm::initialize()
 {
     LOGD("Starting");
-    m_fd = open(PORT_DEV, O_RDWR | O_NOCTTY | O_NDELAY);
+    m_fd = open(PORT_DEV, O_RDWR | O_NOCTTY);
     if(m_fd < 0)
     {
         LOGE("Can't open: %s", strerror(errno));
-        //throw "Can't open serial port";
         return;
     }
-
 
     struct termios tty;
     memset (&tty, 0, sizeof tty);
     if (tcgetattr (m_fd, &tty) != 0)
     {
         LOGE("error \"%s\" from tcgetattr", strerror(errno));
-        //throw "Can't open serial port";
         close(m_fd);
         m_fd = -1;
+        return;
     }
 
     cfsetospeed (&tty, SPEED);
@@ -74,47 +79,31 @@ void Comm::initialize()
     if (tcsetattr (m_fd, TCSANOW, &tty) != 0)
     {
         LOGE("error %d from tcsetattr", strerror(errno));
-        //throw "Can't open serial port";
         close(m_fd);
         m_fd = -1;
+        return;
     }
+
+    m_run_write_thread = true;
+    pthread_create(&m_write_thread, 0, run_write_thread, this);
 }
 
 void Comm::destroy()
 {
+    if(m_run_write_thread)
+    {
+        m_run_write_thread = false;
+        m_write_queue.cancelNotEmptyWait();
+        pthread_join(m_write_thread, 0);
+    }
+
     close(m_fd);
     m_fd = -1;
 }
 
 void Comm::send(char *str, int len)
 {
-    int res = write(m_fd, str, len);
-    if(res != len)
-    {
-        if(res == -1)
-            LOGE("Failed to write bytes to comm: %s", strerror(errno));
-        else
-            LOGE("Failed to write %d bytes to comm, %d written", len, res);
-    }
-}
-
-void Comm::send(char c)
-{
-    send(&c, 1);
-}
-
-void Comm::send(const Packet& pkt)
-{
-    char buff[2];
-    buff[0] = 0x80;
-    buff[1] = (pkt.cmd << 4) | (pkt.data.size() & 0xF);
-
-    int res = write(m_fd, buff, sizeof(buff));
-    if(res == sizeof(buff))
-        res = write(m_fd, pkt.data.data(), pkt.data.size());
-
-    if(res == -1)
-        LOGE("Failed to write bytes to comm: %s", strerror(errno));
+    m_write_queue.push(std::vector<char>(str, str+len));
 }
 
 int Comm::available() const
@@ -150,6 +139,26 @@ void Comm::update(uint32_t diff)
         {
             LOGE("Failed to read byte: %s", strerror(errno));
             break;
+        }
+    }
+}
+
+void Comm::write_thread_work()
+{
+    int res;
+    std::vector<char> data;
+
+    while(m_run_write_thread)
+    {
+        if(m_write_queue.waitForNotEmpty())
+        {
+            data = m_write_queue.pop();
+            res = ::write(m_fd, data.data(), data.size());
+
+            if(res == -1)
+                LOGE("Failed to write bytes to comm: %s", strerror(errno));
+            else if(res != data.size())
+                LOGE("Failed to write %d bytes to comm, %d written", data.size(), res);
         }
     }
 }

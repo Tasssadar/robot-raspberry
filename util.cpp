@@ -17,3 +17,33 @@ char *Util::getLogTime()
     snprintf(buff, sizeof(buff), fmt, ts_now.tv_nsec/1000000LLU);
     return buff;
 }
+
+
+MutexLocker::MutexLocker(pthread_mutex_t *mutex) :
+    m_mutex(mutex), m_locked(false)
+{
+    relock();
+}
+
+MutexLocker::~MutexLocker()
+{
+    unlock();
+}
+
+void MutexLocker::relock()
+{
+    if(!m_locked)
+    {
+        pthread_mutex_lock(m_mutex);
+        m_locked = true;
+    }
+}
+
+void MutexLocker::unlock()
+{
+    if(m_locked)
+    {
+        pthread_mutex_unlock(m_mutex);
+        m_locked = false;
+    }
+}

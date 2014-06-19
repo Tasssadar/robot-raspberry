@@ -31,8 +31,6 @@ static uint32_t timespec_diff(const timespec &f, const timespec &s)
 
 int main(int argc, char **argv)
 {
-    int cam_threshold = 0;
-
     // Set line buffering for stdout and stderr
     setvbuf(stdout, NULL, _IOLBF, 256);
     setvbuf(stderr, NULL, _IOLBF, 256);
@@ -43,15 +41,20 @@ int main(int argc, char **argv)
         if(strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
         {
             printf("Usage: %s [SWITCHES]\n"
-                "    -t X                    - Set the detection threshold\n", argv[0]);
+                "    -t X                    - Set the detection threshold\n",
+                argv[0]);
             return 0;
         }
         else if(strncmp("-t", argv[i], 2) == 0)
         {
+            int th = 0;
             if(len > 2)
-                cam_threshold = atoi(argv[i]+2);
+                th = atoi(argv[i]+2);
             else if(i+1 < argc)
-                cam_threshold = atoi(argv[++i]);
+                th = atoi(argv[++i]);
+
+            if(th > 0)
+                sCamera.setThreshold(th);
         }
         else
         {
@@ -60,21 +63,11 @@ int main(int argc, char **argv)
         }
     }
 
-    try
-    {
-        sComm.initialize();
-        sTcpServer.initialize();
-        sTunnelServer.initialize();
-        //sCamera.open(cam_threshold);
-    }
-    catch(const char* ex)
-    {
-        fprintf(stderr, ex);
-        //return 255;
-    }
+    sComm.initialize();
+    sTcpServer.initialize();
+    sTunnelServer.initialize();
 
     LOGD("Initialization complete.");
-
 
     timespec last, curr;
     uint32_t diff = 0, prevSleepTime = 0;
@@ -84,7 +77,6 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &curr);
         diff = timespec_diff(last, curr);
 
-
         // Process updates
         {
             sComm.update(diff);
@@ -92,7 +84,6 @@ int main(int argc, char **argv)
             sTunnelServer.update(diff);
             sCamera.update(diff);
         }
-
 
         last = curr;
         if(diff <= SLEEP_CONST+prevSleepTime)

@@ -2,9 +2,11 @@
 #define COMM_H
 
 #include <string.h>
-#include <stack>
 #include <stdint.h>
+#include <vector>
+
 #include "packet.h"
+#include "util.h"
 
 class Comm
 {
@@ -21,29 +23,19 @@ public:
     int available() const;
     bool isOpen() const { return m_fd != -1; }
     void send(char *buff, int len);
-    void send(char c);
-    void send(const Packet& pkt);
-
-    Comm& operator <<(const std::string& str)
-    {
-        send((char*)str.c_str(), str.size());
-        return *this;
-    }
-
-    Comm& operator <<(const char *str)
-    {
-        send((char*)str, strlen(str));
-        return *this;
-    }
 
     void update(uint32_t diff);
+
+    void write_thread_work();
 
 private:
     Comm();
     virtual ~Comm();
 
     int m_fd;
-    Packet m_pkt;
+    volatile bool m_run_write_thread;
+    pthread_t m_write_thread;
+    SafeQueue<std::vector<char> > m_write_queue;
 };
 
 #define sComm Comm::instance()
