@@ -11,7 +11,7 @@
 #include "camera.h"
 #include "util.h"
 
-#define SLEEP_CONST 50
+#define SLEEP_CONST 16
 
 static uint32_t timespec_diff(const timespec &f, const timespec &s)
 {

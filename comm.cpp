@@ -13,6 +13,7 @@
 #include "comm.h"
 #include "tcpserver.h"
 #include "util.h"
+#include "rs232.h"
 
 #define PORT_DEV "/dev/ttyUSB0"
 #define SPEED B115200
@@ -65,7 +66,7 @@ void Comm::initialize()
                                     // no canonical processing
     tty.c_oflag = 0;                // no remapping, no delays
     tty.c_cc[VMIN]  = 0;            // read doesn't block
-    tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
+    tty.c_cc[VTIME] = 0;            // 0.5 seconds read timeout
 
     tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
 
@@ -123,7 +124,7 @@ void Comm::update(uint32_t diff)
 
     ssize_t av = available();
 
-    char buff[64];
+    char buff[1024];
     ssize_t chunk;
     ssize_t read = 0;
     while(read < av)
@@ -147,17 +148,33 @@ void Comm::write_thread_work()
     int res;
     std::vector<char> data;
 
+    Packet pkt;
+    int counter = 0;
+
     while(m_run_write_thread)
     {
         if(m_write_queue.waitForNotEmpty())
         {
-            data = m_write_queue.pop();
-            res = ::write(m_fd, data.data(), data.size());
+            do {
+                data = m_write_queue.pop();
+                res = ::write(m_fd, data.data(), data.size());
+                //printf("Comm: %d: [ ", data.size());
+                for(size_t i = 0; i < data.size(); ++i)
+                {
+                    if(pkt.add(data[i]))
+                    {
+                        if(pkt.cmd == 6)
+                            LOGD("writing packet with data no. %d", ++counter);
+                        pkt.clear();
+                    }
+                }
+                //printf("]\n");
 
-            if(res == -1)
-                LOGE("Failed to write bytes to comm: %s", strerror(errno));
-            else if(res != (int)data.size())
-                LOGE("Failed to write %lu bytes to comm, %d written", data.size(), res);
+                if(res == -1)
+                    LOGE("Failed to write bytes to comm: %s", strerror(errno));
+                else if(res != (int)data.size())
+                    LOGE("Failed to write %lu bytes to comm, %d written", data.size(), res);
+            } while(!m_write_queue.empty());
         }
     }
 }

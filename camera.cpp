@@ -269,7 +269,9 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
     boundingRects.resize(contours.size());
 
     double max = 0;
-    int maxCnt = -1;
+    int biggestIdx = -1;
+    int lowestIdx = -1;
+    int lowestHeight = 0;
     vector<Point> bigPoly;
     for(size_t i = 0; i < contours.size(); ++i)
     {
@@ -285,20 +287,26 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
             if(isPointUnderCurve(c))
             {
                 max = t;
-                maxCnt = i;
+                biggestIdx = i;
                 poly.swap(bigPoly);
                 //printf("area: %f\n", t);
             }
         }
+
+        if(boundingRects[i].y + boundingRects[i].height > lowestHeight)
+        {
+            lowestHeight = boundingRects[i].y + boundingRects[i].height;
+            lowestIdx = i;
+        }
     }
 
     // Use only the top third - the head
-    if(maxCnt != -1)
+    if(biggestIdx != -1)
     {
         int min_x = bigPoly[0].x;
         int max_x = bigPoly[0].x;
         int width = 0;
-        const int top = (boundingRects[maxCnt].y + int(boundingRects[maxCnt].height*0.3));
+        const int top = (boundingRects[biggestIdx].y + int(boundingRects[biggestIdx].height*0.3));
         std::vector<Point> newPoly;
         std::sort(bigPoly.begin(), bigPoly.end(), sort_poly);
         for(size_t i = 0; i < bigPoly.size(); ++i)
@@ -312,35 +320,48 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
             width = max_x - min_x;
             newPoly.push_back(bigPoly[i]);    
         }
-        boundingRects[maxCnt] = boundingRect(Mat(newPoly));
+        boundingRects[biggestIdx] = boundingRect(Mat(newPoly));
     }
 
-    if(!m_show_gui)
-    {
-        if(maxCnt != -1)
-            return boundingRects[maxCnt];
-    }
-    else
+    if(m_show_gui)
     {
         Mat drawing = Mat::zeros( tmp.size(), CV_8UC3 );
 
-        if(maxCnt != -1)
-        {
-            const Rect& bRect = boundingRects[maxCnt];
-            const Scalar color = Scalar(255, 255, 255);
-            const Scalar gColor = Scalar(0, 255, 0);
+        const Scalar cWhite = Scalar(255, 255, 255);
+        const Scalar cGreen = Scalar(0, 255, 0);
+        const Scalar cRed = Scalar(255, 0, 0);
+        const Scalar cBlue = Scalar(0, 0, 255);
+        const Scalar cYellow = Scalar(255, 255, 0);
 
-            drawContours( drawing, contours, maxCnt, color, -1, 8);
-            rectangle(drawing, bRect.tl(), bRect.br(), gColor, 2, 8, 0);
-            LOGD("Found: %d %d", bRect.x, bRect.y);
+        const Scalar *contClr = NULL;
+
+        for(size_t i = 0; i < contours.size(); ++i)
+        {
+            const Rect& bRect = boundingRects[i];
+
+            if((int)i == lowestIdx)
+                contClr = &cYellow;
+            else if(bRect.width >= bRect.height*2.5)
+                contClr = &cRed;
+            else if((int)i == biggestIdx)
+                contClr = &cBlue;
+            else
+                contClr = &cWhite;
+
+            drawContours(drawing, contours, i, *contClr, -1, 8);
+
+            if((int)i == biggestIdx)
+            {
+                rectangle(drawing, bRect.tl(), bRect.br(), cGreen, 2, 8, 0);
+                LOGD("Found: %d %d", bRect.x, bRect.y);
+            }
         }
 
         imshow("diff", drawing);
-
-        if(maxCnt != -1)
-            return boundingRects[maxCnt];
     }
 
+    if(biggestIdx != -1)
+        return boundingRects[biggestIdx];
     return Rect(-1, -1, -1, -1);
 }
 

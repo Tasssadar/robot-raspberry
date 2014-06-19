@@ -35,8 +35,8 @@ public:
     SafeQueue();
     virtual ~SafeQueue();
 
-    bool empty() const;
-    size_t size() const;
+    bool empty();
+    size_t size();
 
     bool waitForNotEmpty();
     void cancelNotEmptyWait();
@@ -65,14 +65,14 @@ SafeQueue<T>::~SafeQueue()
 }
 
 template <class T>
-bool SafeQueue<T>::empty() const
+bool SafeQueue<T>::empty()
 {
     MutexLocker l(&m_mutex);
     return m_queue.empty();
 }
 
 template <class T>
-size_t SafeQueue<T>::size() const
+size_t SafeQueue<T>::size()
 {
     MutexLocker l(&m_mutex);
     return m_queue.size();
