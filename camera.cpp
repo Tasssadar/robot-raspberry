@@ -130,6 +130,9 @@ void Camera::capture_thread_work()
         pthread_mutex_unlock(&m_frame_mutex);
 #else
         usleep(16000);
+        pthread_mutex_lock(&m_frame_mutex);
+        pthread_cond_broadcast(&m_frame_cond);
+        pthread_mutex_unlock(&m_frame_mutex);
 #endif
     }
 }
@@ -289,7 +292,7 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
         }
     }
 
-    // Use only the top third - the head    
+    // Use only the top third - the head
     if(maxCnt != -1)
     {
         int min_x = bigPoly[0].x;
@@ -447,14 +450,23 @@ void Camera::execAct(const std::string& name)
 
 void Camera::setRotation(int deg)
 {
+    int res;
+    struct timespec timeout;
+
     if(m_rotation == deg)
         return;
 
     m_rotation = deg;
 
     // wait for new, rotated frame
+    clock_gettime(CLOCK_REALTIME, &timeout);
+    timeout.tv_sec += 2;
+
+    LOGD("waiting for rotated frame");
     pthread_mutex_lock(&m_frame_mutex);
-    LOGD("Waiting");
-    pthread_cond_wait(&m_frame_cond, &m_frame_mutex);
+    res = pthread_cond_timedwait(&m_frame_cond, &m_frame_mutex, &timeout);
     pthread_mutex_unlock(&m_frame_mutex);
+
+    if(res != 0)
+        LOGE("wait failed with %d (%s)", res, strerror(res));
 }

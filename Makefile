@@ -1,5 +1,5 @@
 program=kvetinac_pi
-OBJ=comm.o main.o packet.o tcpserver.o camera.o
+OBJ=comm.o main.o packet.o tcpserver.o camera.o util.o
 OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
 CXX?=g++
 
@@ -40,4 +40,7 @@ main.o: main.cpp
 	${CXX} ${OPT} -c  $<
 
 comm.o: comm.cpp
+	${CXX} ${OPT} -c  $<
+
+util.o: util.cpp
 	${CXX} ${OPT} -c  $<

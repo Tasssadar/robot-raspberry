@@ -33,6 +33,10 @@ int main(int argc, char **argv)
 {
     int cam_threshold = 0;
 
+    // Set line buffering for stdout and stderr
+    setvbuf(stdout, NULL, _IOLBF, 256);
+    setvbuf(stderr, NULL, _IOLBF, 256);
+
     for(int i = 1; i < argc; ++i)
     {
         const int len = strlen(argv[i]);
