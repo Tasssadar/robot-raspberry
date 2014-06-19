@@ -163,21 +163,22 @@ void Comm::write_thread_work()
                     continue;
 
                 pkt.get_send_data(send_data);
-                res = ::write(m_fd, send_data.data(), send_data.size());
+                pkt.clear();
 
+                res = ::write(m_fd, send_data.data(), send_data.size());
+                if(res == -1)
+                    LOGE("Failed to write bytes to comm: %s", strerror(errno));
+                else if(res != (int)send_data.size())
+                    LOGE("Failed to write %lu bytes to comm, %d written", send_data.size(), res);
+
+                // If we write too fast, the port looses data. Sleeping after each
+                // ~64B block seems to work pretty good
                 sleep_counter += send_data.size();
                 if(sleep_counter >= 64)
                 {
                     usleep(15000);
                     sleep_counter = 0;
                 }
-
-                if(res == -1)
-                    LOGE("Failed to write bytes to comm: %s", strerror(errno));
-                else if(res != (int)send_data.size())
-                    LOGE("Failed to write %lu bytes to comm, %d written", send_data.size(), res);
-
-                pkt.clear();
             }
         }
         while(!m_write_queue.empty());
