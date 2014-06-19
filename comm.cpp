@@ -145,37 +145,42 @@ void Comm::update(uint32_t diff)
 
 void Comm::write_thread_work()
 {
-    int res;
-    std::vector<char> data;
-
+    int res, sleep_counter = 0;
     Packet pkt;
-    int counter = 0;
+    std::vector<char> data, send_data;
 
     while(m_run_write_thread)
     {
-        if(m_write_queue.waitForNotEmpty())
+        if(!m_write_queue.waitForNotEmpty())
+            continue;
+
+        do
         {
-            do {
-                data = m_write_queue.pop();
-                res = ::write(m_fd, data.data(), data.size());
-                //printf("Comm: %d: [ ", data.size());
-                for(size_t i = 0; i < data.size(); ++i)
+            data = m_write_queue.pop();
+            for(size_t i = 0; i < data.size(); ++i)
+            {
+                if(!pkt.add(data[i]))
+                    continue;
+
+                pkt.get_send_data(send_data);
+                res = ::write(m_fd, send_data.data(), send_data.size());
+
+                sleep_counter += send_data.size();
+                if(sleep_counter >= 64)
                 {
-                    if(pkt.add(data[i]))
-                    {
-                        if(pkt.cmd == 6)
-                            LOGD("writing packet with data no. %d", ++counter);
-                        pkt.clear();
-                    }
+                    usleep(15000);
+                    sleep_counter = 0;
                 }
-                //printf("]\n");
 
                 if(res == -1)
                     LOGE("Failed to write bytes to comm: %s", strerror(errno));
-                else if(res != (int)data.size())
-                    LOGE("Failed to write %lu bytes to comm, %d written", data.size(), res);
-            } while(!m_write_queue.empty());
+                else if(res != (int)send_data.size())
+                    LOGE("Failed to write %lu bytes to comm, %d written", send_data.size(), res);
+
+                pkt.clear();
+            }
         }
+        while(!m_write_queue.empty());
     }
 }
 
