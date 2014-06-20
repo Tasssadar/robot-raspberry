@@ -18,8 +18,8 @@ using namespace cv;
   #include <raspicam/raspicam_cv.h>
 #endif
 
-#define RES_X 320
-#define RES_Y 240
+#define RES_X 640
+#define RES_Y 360
 
 static void *camera_run_capture_thread(void *camera)
 {
@@ -197,7 +197,7 @@ void Camera::capture(uint32_t idx)
     if(!m_frame.empty())
     {
         char name[128];
-        snprintf(name, sizeof(name), "diff_%02d-%02d.png", i, type);
+        snprintf(name, sizeof(name), "diff_%02d-%02d.jpg", i, type);
         imwrite(name, m_frame);
         cvtColor(m_frame, m_diffs[i][type], CV_RGB2GRAY);
         LOGD("Diff %02d-%02d captured", i, type);
@@ -411,6 +411,16 @@ void Camera::setVar(const std::string& name, int val)
         setRotation(val);
     else if(name == "cthreshold")
         setThreshold(val);
+    else if(name == "ccamera")
+    {
+        if(val != 0)
+        {
+            open();
+            waitForFrame(2);
+        }
+        else
+            close();
+    }
     else
         LOGE("Unknown var %s = %d", name.c_str(), val);
 }
@@ -423,6 +433,10 @@ int Camera::getVar(const std::string& name)
         return m_rotation;
     else if(name == "cthreshold")
         return m_threshold;
+#ifndef NORPI
+    else if(name == "ccamera")
+        return int(m_capture != NULL);
+#endif
     else
     {
         LOGE("Unknown var %s", name.c_str());
@@ -474,23 +488,35 @@ void Camera::execAct(const std::string& name)
 
 void Camera::setRotation(int deg)
 {
-    int res;
-    struct timespec timeout;
-
     if(m_rotation == deg)
         return;
 
     m_rotation = deg;
 
     // wait for new, rotated frame
+    LOGD("waiting for rotated frame");
+    waitForFrame(2);
+}
+
+bool Camera::waitForFrame(int timeout_sec)
+{
+    int res;
+    struct timespec timeout;
+
+    if(m_capture == NULL)
+    {
+        LOGD("Can't wait for frame, capture is not running");
+        return false;
+    }
+
     clock_gettime(CLOCK_REALTIME, &timeout);
     timeout.tv_sec += 2;
 
-    LOGD("waiting for rotated frame");
     pthread_mutex_lock(&m_frame_mutex);
     res = pthread_cond_timedwait(&m_frame_cond, &m_frame_mutex, &timeout);
     pthread_mutex_unlock(&m_frame_mutex);
 
     if(res != 0)
         LOGE("wait failed with %d (%s)", res, strerror(res));
+    return res == 0;
 }

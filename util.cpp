@@ -14,7 +14,7 @@ char *Util::getLogTime()
     localtime_r(&ts_now.tv_sec, &tm_local);
 
     strftime(fmt, sizeof(fmt), "[%d.%m.%y %H:%M:%S.%%03d]", &tm_local);
-    snprintf(buff, sizeof(buff), fmt, ts_now.tv_nsec/1000000LLU);
+    snprintf(buff, sizeof(buff), fmt, ts_now.tv_nsec/1000000LU);
     return buff;
 }
 

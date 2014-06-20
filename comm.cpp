@@ -13,7 +13,6 @@
 #include "comm.h"
 #include "tcpserver.h"
 #include "util.h"
-#include "rs232.h"
 
 #define PORT_DEV "/dev/ttyUSB0"
 #define SPEED B115200

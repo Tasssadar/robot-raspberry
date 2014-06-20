@@ -220,6 +220,7 @@ void CommandTcpServer::handle_packet(Packet& pkt)
             LOGD("CMSG_GET_VAR_INT %s = %d", name.c_str(), ret);
 
             Packet res_pkt(SMSG_GET_VAR_INT);
+            res_pkt << name;
             res_pkt << ret;
             write(res_pkt);
             break;
@@ -249,14 +250,12 @@ void CommandTcpServer::handle_packet(Packet& pkt)
 
 void CommandTcpServer::onClientAdded()
 {
-    if(m_clients.size() == 1)
-        sCamera.open();
+
 }
 
 void CommandTcpServer::onClientRm()
 {
-    if(m_clients.empty())
-        sCamera.close();
+
 }
 
 TunnelTcpServer::TunnelTcpServer() : TcpServer(TUNNEL_PORT)

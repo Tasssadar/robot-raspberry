@@ -70,6 +70,7 @@ public:
 
 private:
     void rotateFrame(cv::Mat& frame);
+    bool waitForFrame(int timeout_sec);
 
     Camera();
     virtual ~Camera();
