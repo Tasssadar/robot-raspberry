@@ -65,12 +65,16 @@ public:
     void capture_thread_work();
 
     void capture(uint32_t idx);
-    cv::Rect find_bear(const cv::Mat& diff);
+    cv::Rect find_bear(const cv::Mat& diff, int diffIdx);
     void find_bear();
+
+    void printColorAt(int x, int y);
 
 private:
     void rotateFrame(cv::Mat& frame);
     bool waitForFrame(int timeout_sec);
+    void loadMask();
+    void findWall(const cv::Mat& frame, int diffIdx);
 
     Camera();
     virtual ~Camera();
@@ -84,13 +88,16 @@ private:
     pthread_cond_t m_frame_cond;
     volatile bool m_run_capture;
     cv::Mat m_frame;
+    cv::Mat m_lastDisplayFrame;
     cv::Mat m_diffs[DIFF_MAX_CNT][DIFF_TYPE_MAX];
+    cv::Mat m_mask[DIFF_MAX_CNT];
     int m_threshold;
     bool m_show_gui;
     int m_cut_y;
     int m_last_diff;
     int m_rotation;
     cv::Rect m_bear[DIFF_MAX_CNT];
+    cv::Scalar m_detectWallClr[2];
     std::vector<cv::Point> m_cut_pts;
 };
 

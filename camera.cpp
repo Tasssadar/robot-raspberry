@@ -41,7 +41,8 @@ static void mouseEvent(int evt, int x, int y, int flags, void* param)
 
     if(flags & CV_EVENT_FLAG_LBUTTON)
     {
-        sCamera.addCutPoint(x, y);
+        //sCamera.addCutPoint(x, y);
+        sCamera.printColorAt(x, y);
     }
 }
 
@@ -49,17 +50,28 @@ Camera::Camera()
 {
 #ifndef NORPI
     m_capture = NULL;
-#else
+#endif
     m_frame.create(RES_Y, RES_X, CV_8UC3);
     m_frame.setTo(Scalar(0, 0, 0));
-#endif
+
+    m_lastDisplayFrame = m_frame;
+
     m_run_capture = false;
     m_threshold = 70;
     m_show_gui = false;
     m_last_diff = -1;
 
     for(size_t i = 0; i < DIFF_MAX_CNT; ++i)
+    {
         m_bear[i] = Rect(-1, -1, -1, -1);
+        m_mask[i].create(RES_Y, RES_X, CV_8UC1);
+        m_mask[i].setTo(Scalar(255, 255, 255));
+    }
+
+    loadMask();
+
+    m_detectWallClr[0] = Scalar(0, 24, 31);
+    m_detectWallClr[1] = Scalar(29, 196, 255);
 
     pthread_mutex_init(&m_frame_mutex, 0);
     pthread_cond_init(&m_frame_cond, 0);
@@ -175,6 +187,8 @@ void Camera::updateCamView()
     tmp = m_frame.clone();
     pthread_mutex_unlock(&m_frame_mutex);
 
+    cvtColor(tmp, m_lastDisplayFrame, COLOR_BGR2HSV);
+
     line(tmp, Point(0, m_cut_y), Point(RES_X, m_cut_y), wColor);
 
     if(!m_cut_pts.empty())
@@ -199,7 +213,9 @@ void Camera::capture(uint32_t idx)
         char name[128];
         snprintf(name, sizeof(name), "diff_%02d-%02d.jpg", i, type);
         imwrite(name, m_frame);
-        cvtColor(m_frame, m_diffs[i][type], CV_RGB2GRAY);
+        //if(type == 0)
+            //findWall(m_frame, i);
+        cvtColor(m_frame, m_diffs[i][type], CV_BGR2GRAY);
         LOGD("Diff %02d-%02d captured", i, type);
     }
     pthread_mutex_unlock(&m_frame_mutex);
@@ -216,7 +232,7 @@ void Camera::capture(uint32_t idx)
         subtract(m_diffs[i][0], m_diffs[i][1], diff);
         m_diffs[i][1] = diff;
         m_last_diff = i;
-        m_bear[i] = find_bear(diff);
+        m_bear[i] = find_bear(diff, i);
     }
 }
 
@@ -245,7 +261,7 @@ void Camera::find_bear()
 {
     if(m_last_diff != -1)
     {
-        m_bear[m_last_diff] = find_bear(m_diffs[m_last_diff][1]);
+        m_bear[m_last_diff] = find_bear(m_diffs[m_last_diff][1], m_last_diff);
     }
 }
 
@@ -254,7 +270,80 @@ static bool sort_poly(const Point& a, const Point&b)
     return (a.y < b.y) || (a.y == b.y && a.x < b.x); 
 }
 
-cv::Rect Camera::find_bear(const cv::Mat& diff)
+void Camera::findWall(const cv::Mat& frame, int diffIdx)
+{
+    Mat imgHSV, imgThresholded;
+    cvtColor(frame, imgHSV, COLOR_BGR2HSV);
+
+    //const Scalar low(0, 24, 31);
+    //const Scalar high(29, 196, 255);
+    inRange(imgHSV, m_detectWallClr[0], m_detectWallClr[1], imgThresholded);
+
+    //morphological opening (remove small objects from the foreground)
+    erode(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
+    dilate(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) ); 
+
+    //morphological closing (fill small holes in the foreground)
+    dilate( imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) ); 
+    erode(imgThresholded, imgThresholded, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
+
+    std::vector<std::vector<Point> > contours;
+    findContours(imgThresholded, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+
+    double maxArea = 0;
+    int maxAreaIdx = -1;
+    for(size_t i = 0; i < contours.size(); ++i)
+    {
+        double area = contourArea(contours[i]);
+        if(area > maxArea)
+        {
+            maxAreaIdx = i;
+            maxArea = area;
+        }
+    }
+
+    const Scalar red(190, 255, 255);
+    drawContours(imgThresholded, contours, maxAreaIdx, red, -1, 8);
+
+    if(maxAreaIdx != -1)
+    {
+        vector<Point> poly;
+        double peri = arcLength(Mat(contours[maxAreaIdx]), true);
+        approxPolyDP(Mat(contours[maxAreaIdx]), poly, 0.02 * peri, true);
+
+        vector<Point> cutPoints = poly;
+        std::sort(cutPoints.begin(), cutPoints.end(), sort_poly);
+        cutPoints.resize(2);
+        cutPoints[0].y += 10;
+        cutPoints[1].y += 10;
+
+        for(size_t i = 0; i < poly.size(); ++i)
+        {
+            LOGD("[%d, %d]", poly[i].x, poly[i].y);
+            circle(imgThresholded, poly[i], 5, m_detectWallClr[1], 5);
+        }
+        LOGD("CUT POINTS: [%d, %d], [%d, %d]", cutPoints[0].x, cutPoints[0].y, cutPoints[1].x, cutPoints[1].y);
+
+        if(cutPoints[0].x > cutPoints[1].x)
+            std::swap(cutPoints[0], cutPoints[1]);
+
+        cutPoints.insert(cutPoints.begin(), Point(0, cutPoints[0].y));
+        cutPoints.push_back(Point(RES_X, cutPoints[1].y));
+        cutPoints.push_back(Point(RES_X, 0));
+        cutPoints.push_back(Point(0, 0));
+
+        m_mask[diffIdx].create(RES_Y, RES_X, CV_8UC1);
+        m_mask[diffIdx].setTo(Scalar(255, 255, 255));
+        fillConvexPoly(m_mask[diffIdx], cutPoints.data(), cutPoints.size(), Scalar(0, 0, 0));
+        //fillConvexPoly(imgThresholded, cutPoints.data(), cutPoints.size(), m_detectWallClr[1]);
+        imshow("mask", m_mask[diffIdx]);
+    }
+
+    if(m_show_gui)
+        imshow("detect", imgThresholded);
+}
+
+cv::Rect Camera::find_bear(const cv::Mat& diff, int diffIdx)
 {
     if(diff.empty())
         return Rect(-1, -1, -1, -1);
@@ -262,7 +351,17 @@ cv::Rect Camera::find_bear(const cv::Mat& diff)
     Mat tmp;
     std::vector<std::vector<Point> > contours;
     std::vector<Rect> boundingRects;
-    cv::threshold(diff, tmp, m_threshold, 255, 0);
+
+    cv::bitwise_and(diff, m_mask[diffIdx], tmp);
+    cv::threshold(tmp, tmp, m_threshold, 255, 0);
+
+    //morphological opening (remove small objects from the foreground)
+    erode(tmp, tmp, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
+    dilate(tmp, tmp, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) ); 
+
+    //morphological closing (fill small holes in the foreground)
+    dilate(tmp, tmp, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) ); 
+    erode(tmp, tmp, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
 
     findContours(tmp, contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
 
@@ -403,6 +502,13 @@ void Camera::finalizeCutCurve()
     m_cut_pts.push_back(p);
 }
 
+static bool startsWith(const std::string& haystack, const char *needle)
+{
+    const size_t len = strlen(needle);
+    return haystack.size() > len &&
+        haystack.compare(0, len, needle, len) == 0;
+}
+
 void Camera::setVar(const std::string& name, int val)
 {
     if(name == "cgui")
@@ -420,6 +526,12 @@ void Camera::setVar(const std::string& name, int val)
         }
         else
             close();
+    }
+    else if(startsWith(name, "cwallclr"))
+    {
+        const int type = name[8]-'0';
+        m_detectWallClr[type] = Scalar(val & 0xFF, (val >> 8) & 0xFF, (val >> 16) & 0xFF);
+        LOGD("Setting wall color to [%d](%d, %d, %d)!", type, val & 0xFF, (val >> 8) & 0xFF, (val >> 16) & 0xFF);
     }
     else
         LOGE("Unknown var %s = %d", name.c_str(), val);
@@ -444,17 +556,12 @@ int Camera::getVar(const std::string& name)
     }
 }
 
-static bool startsWith(const std::string& haystack, const char *needle)
-{
-    const size_t len = strlen(needle);
-    return haystack.size() > len &&
-        haystack.compare(0, len, needle, len) == 0;
-}
-
 void Camera::execAct(const std::string& name)
 {
     if(name == "cupdate")
         updateCamView();
+    else if(name == "creloadmask")
+        loadMask();
     else if(startsWith(name, "cdiff"))
     {
         capture(name[5]-'0');
@@ -480,7 +587,7 @@ void Camera::execAct(const std::string& name)
         sTcpServer.write(pkt);
 
         if(m_show_gui)
-            m_bear[type] = find_bear(m_diffs[type][1]);
+            m_bear[type] = find_bear(m_diffs[type][1], type);
     }
     else
         LOGE("Unknown action %s", name.c_str());
@@ -503,11 +610,13 @@ bool Camera::waitForFrame(int timeout_sec)
     int res;
     struct timespec timeout;
 
+#ifndef NORPI
     if(m_capture == NULL)
     {
         LOGD("Can't wait for frame, capture is not running");
         return false;
     }
+#endif
 
     clock_gettime(CLOCK_REALTIME, &timeout);
     timeout.tv_sec += 2;
@@ -519,4 +628,24 @@ bool Camera::waitForFrame(int timeout_sec)
     if(res != 0)
         LOGE("wait failed with %d (%s)", res, strerror(res));
     return res == 0;
+}
+
+void Camera::loadMask()
+{
+    char buff[32];
+    for(size_t i = 0; i < DIFF_MAX_CNT; ++i)
+    {
+        snprintf(buff, sizeof(buff), "mask%02d.png", i);
+        Mat mask = imread(buff, CV_LOAD_IMAGE_GRAYSCALE);
+        if(!mask.empty())
+            m_mask[i] = mask;
+    }
+}
+
+void Camera::printColorAt(int x, int y)
+{
+    Vec3b vec = m_lastDisplayFrame.at<Vec3b>(x, y);
+    LOGD("Color at [%d, %d]: (%d, %d, %d)", x, y, vec[0], vec[1], vec[2]);
+    vec = m_lastDisplayFrame.at<Vec3b>(y, x);
+    LOGD("Color2 at [%d, %d]: (%d, %d, %d)", x, y, vec[0], vec[1], vec[2]);
 }
