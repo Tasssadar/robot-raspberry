@@ -11,6 +11,7 @@ class Util
 {
 public:
     static char *getLogTime();
+    static ssize_t readFile(const char *path, char *buff, size_t max_len);
 };
 
 class MutexLocker

@@ -156,6 +156,20 @@ void Comm::write_thread_work()
         do
         {
             data = m_write_queue.pop();
+#if 0
+            res = ::write(m_fd, data.data(), data.size());
+            if(res == -1)
+                LOGE("Failed to write bytes to comm: %s", strerror(errno));
+            else if(res != (int)data.size())
+                LOGE("Failed to write %lu bytes to comm, %d written", data.size(), res);
+
+            sleep_counter += data.size();
+            if(sleep_counter >= 64)
+            {
+                usleep(15000);
+                sleep_counter = 0;
+            }
+#else
             for(size_t i = 0; i < data.size(); ++i)
             {
                 if(!pkt.add(data[i]))
@@ -179,6 +193,7 @@ void Comm::write_thread_work()
                     sleep_counter = 0;
                 }
             }
+#endif
         }
         while(!m_write_queue.empty());
     }

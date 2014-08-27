@@ -8,6 +8,8 @@
 #include "packet.h"
 #include "util.h"
 
+struct termios;
+
 class Comm
 {
 public:
@@ -31,6 +33,8 @@ public:
 private:
     Comm();
     virtual ~Comm();
+
+    void loadSpeed(struct termios *tty);
 
     int m_fd;
     volatile bool m_run_write_thread;
