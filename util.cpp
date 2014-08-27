@@ -18,6 +18,17 @@ char *Util::getLogTime()
     return buff;
 }
 
+ssize_t Util::readFile(const char *path, char *buff, size_t max_len)
+{
+    FILE *f = fopen(path, "r");
+    if(!f)
+        return -1;
+
+    ssize_t res = fread(buff, sizeof(char), max_len, f);
+    fclose(f);
+    return res;
+}
+
 
 MutexLocker::MutexLocker(pthread_mutex_t *mutex) :
     m_mutex(mutex), m_locked(false)
