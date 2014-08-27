@@ -1,15 +1,27 @@
 program=kvetinac_pi
 OBJ=comm.o main.o packet.o tcpserver.o camera.o util.o
-OPT=-Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
 CXX?=g++
 C?=gcc
+OPT :=
 
 ifeq ($(NORPI), true)
 	OPT += -DNORPI
 else
+
+ifneq ($(RPI_CROSS),)
+	CXX = $(RPI_CROSS)/bin/g++
+	C = $(RPI_CROSS)/bin/gcc
+
+	OPT += -Wl,-rpath,$(RPI_CROSS)/lib/gcc
+	OPT += -Wl,-rpath,$(RPI_CROSS)/lib/gcc/arm-linux-gnueabihf
+	OPT += -I$(RPI_CROSS)/chain/include/arm-linux-gnueabihf
+	OPT += -lstdc++
+endif
+
 	OPT += -lraspicam -lraspicam_cv -lmmal -lmmal_core -lmmal_util
 endif
 
+OPT += -Os -lrt -pthread -lopencv_highgui -lopencv_core -lopencv_imgproc
 OPT += $(CXXFLAGS)
 
 .PHONY: build
